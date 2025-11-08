@@ -1,0 +1,206 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    background: radial-gradient(circle at center, #252021, #090407);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.container {
+    border: 4px solid rgba(255,255,255,0.05);
+    border-radius: 20px;
+    max-width: 1000px;
+    width: 100%;
+    padding: 40px 30px;
+    display: flex;
+    gap: 40px;
+}
+
+/* Timings sidebar */
+aside.timings {
+    background: rgba(0, 191, 255, 0.6);
+    box-shadow: inset 0 0 60px #3C50B2;
+    border-radius: 10px;
+    padding: 20px;
+    width: 180px;
+    font-size: 14px;
+    font-weight: 600;
+}
+aside.timings h3 {
+    margin-bottom: 15px;
+    font-weight: 700;
+    font-size: 16px;
+}
+aside.timings ul {
+    list-style: none;
+}
+aside.timings ul li {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    cursor: pointer;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    transition: background-color 0.3s ease;
+    user-select: none;
+    outline: none;
+}
+aside.timings ul li .icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+aside.timings ul li.active {
+    background: #00BFFF;
+    border-color: #00BFFF;
+}
+aside.timings ul li:focus {
+    outline: 2px solid #00BFFF;
+    outline-offset: 2px;
+}
+
+/* Seat selection main */
+main.seat-selection {
+    flex: 1;
+    text-align: center;
+}
+
+main.seat-selection h1 {
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+/* Screen bar + label */
+.screen {
+    position: relative;
+    margin: 0 auto 50px;
+    max-width: 400px;
+    height: 8px;
+    background: rgba(0, 191, 255, 0.6);
+    box-shadow: 0 0 15px #3C50B2;
+    border-radius: 30px 30px 0 0;
+}
+.screen::before {
+    content: "SCREEN SIDE";
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #6e7ab3;
+    font-weight: 600;
+    letter-spacing: 2px;
+}
+
+/* Seats wrapper */
+.seats-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 680px;
+    margin: 0 auto 40px;
+}
+
+/* Row styles */
+.row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Row labels */
+.row-label {
+    width: 20px;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6e7ab3;
+}
+
+/* Seat numbers below seats */
+.row-labels {
+    justify-content: center;
+    margin-bottom: 0;
+}
+.seat-numbers-bottom {
+    margin-top: 15px;
+}
+
+/* Seat numbers */
+.seat-number {
+    width: 28px;
+    font-size: 12px;
+    color: #6e7ab3;
+    text-align: center;
+}
+
+/* Seat gap */
+.seat-gap {
+    width: 40px;
+}
+
+/* Seats */
+.seat {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 1.5px solid #3C50B2;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.3s, border 0.3s;
+    outline: none;
+}
+.seat:hover:not(.booked):not(.selected) {
+    border-color: #607afa;
+}
+.seat.selected {
+    background: #607afa;
+    border-color: #607afa;
+}
+.seat.booked {
+    background: #1d5061;
+    border-color: #1d5061;
+    cursor: not-allowed;
+}
+.seat:focus {
+    outline: 2px solid #00BFFF;
+    outline-offset: 2px;
+}
+
+/* Proceed button */
+.proceed-btn {
+    background: #00BFFF;
+    border: none;
+    border-radius: 40px;
+    padding: 12px 28px;
+    font-weight: 500;
+    font-size: 14px;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.3s ease;
+}
+.proceed-btn span {
+    font-size: 16px;
+    font-weight: 900;
+}
+.proceed-btn:hover:not(:disabled) {
+    background: #0099cc;
+}
+.proceed-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}

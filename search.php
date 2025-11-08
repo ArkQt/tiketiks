@@ -232,7 +232,7 @@ if (!empty($search_query)) {
             </nav>
         </div>
         <div class="right-section">
-            <button class="ticket-btn">Tickets</button>
+            <button class="ticket-btn">Buy Tickets</button>
             <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
                 <span class="welcome-text">Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>!</span>
                 <a href="logout.php" class="login-link"><i class="user-icon"></i> Logout</a>

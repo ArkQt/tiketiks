@@ -37,7 +37,11 @@ session_start();
   </div>
 
   <div class="right-section">
-    <button class="ticket-btn">Buy Tickets</button>
+    <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+      <a href="seat-reservation.php" class="ticket-btn" style="text-decoration: none; display: inline-block; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer;">Buy Tickets</a>
+    <?php else: ?>
+      <a href="login.php" class="ticket-btn" style="text-decoration: none; display: inline-block; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer;">Buy Tickets</a>
+    <?php endif; ?>
     <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
       <div class="user-profile">
         <button class="profile-button" onclick="toggleProfileDropdown()" aria-label="User Profile">
@@ -154,7 +158,7 @@ session_start();
             <p>Sci-Fi/Action • 2h 15m • PG-13</p>
             <div class="movie-actions">
               <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Tron: Ares')">▶ Trailer</button>
-              <button class="action-btn ticket-btn" onclick="event.stopPropagation(); openBooking('Tron: Ares')">🎟 Tickets</button>
+              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Tron: Ares'); return false;">🎟 Buy Tickets</a>
             </div>
           </div>
         </div>
@@ -167,7 +171,7 @@ session_start();
             <p>Action/Horror • 1h 45m • R</p>
             <div class="movie-actions">
               <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Chainsaw Man')">▶ Trailer</button>
-              <button class="action-btn ticket-btn" onclick="event.stopPropagation(); openBooking('Chainsaw Man')">🎟 Tickets</button>
+              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Chainsaw Man'); return false;">🎟 Buy Tickets</a>
             </div>
           </div>
         </div>
@@ -180,7 +184,7 @@ session_start();
             <p>Horror/Thriller • 1h 43m • R</p>
             <div class="movie-actions">
               <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Black Phone')">▶ Trailer</button>
-              <button class="action-btn ticket-btn" onclick="event.stopPropagation(); openBooking('Black Phone')">🎟 Tickets</button>
+              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Black Phone'); return false;">🎟 Buy Tickets</a>
             </div>
           </div>
         </div>
@@ -193,7 +197,7 @@ session_start();
             <p>Comedy/Family • 1h 30m • PG</p>
             <div class="movie-actions">
               <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Good Boy')">▶ Trailer</button>
-              <button class="action-btn ticket-btn" onclick="event.stopPropagation(); openBooking('Good Boy')">🎟 Tickets</button>
+              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Good Boy'); return false;">🎟 Buy Tickets</a>
             </div>
           </div>
         </div>
@@ -206,7 +210,7 @@ session_start();
             <p>Drama/Historical • 2h 30m • PG-13</p>
             <div class="movie-actions">
               <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Quezon')">▶ Trailer</button>
-              <button class="action-btn ticket-btn" onclick="event.stopPropagation(); openBooking('Quezon')">🎟 Tickets</button>
+              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Quezon'); return false;">🎟 Buy Tickets</a>
             </div>
           </div>
         </div>
@@ -362,9 +366,9 @@ session_start();
         </div>
         <div class="modal-actions">
           <!-- Removed the Watch Trailer button -->
-          <button class="action-btn ticket-btn" onclick="openBooking(document.getElementById('modalMovieTitle').textContent)">
+          <a href="#" class="action-btn ticket-btn" onclick="goToSeatReservation(document.getElementById('modalMovieTitle').textContent); return false;" style="text-decoration: none; display: inline-block;">
             🎟 Buy Tickets
-          </button>
+          </a>
         </div>
       </div>
     </div>
@@ -602,13 +606,23 @@ function closeTrailer() {
     // startAutoPlay(); // DISABLED - No auto-resume when modal closes
 }
 
-// Booking Modal Functions
+// Direct navigation to seat reservation
+function goToSeatReservation(movieName) {
+    // Close any open modals
+    closeMovieModal();
+    closeBooking();
+    
+    <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+        window.location.href = 'seat-reservation.php?movie=' + encodeURIComponent(movieName);
+    <?php else: ?>
+        window.location.href = 'login.php';
+    <?php endif; ?>
+}
+
+// Booking Modal Functions (kept for backward compatibility, but not used anymore)
 function openBooking(movieName) {
-    console.log('Opening booking for:', movieName); // Debug log
-    document.getElementById('bookingMovieName').textContent = movieName;
-    document.getElementById('bookingModal').style.display = 'block';
-    stopAutoPlay(); // Pause carousel when modal opens
-    updatePrice(); // Initialize price calculation
+    // Redirect directly to seat reservation instead of showing modal
+    goToSeatReservation(movieName);
 }
 
 function closeBooking() {
@@ -647,10 +661,16 @@ function processBooking() {
         return;
     }
     
-    // Simulate booking process
-    alert(`Booking Confirmed!\n\nMovie: ${movieName}\nShowtime: ${showtime}\nTickets: ${tickets}\nSeat Type: ${seatType}\nTotal: ${totalPrice}\n\nThank you for choosing Ticketix!`);
+    // Redirect to seat reservation page with booking details
+    const params = new URLSearchParams({
+        movie: movieName,
+        showtime: showtime,
+        tickets: tickets,
+        seatType: seatType,
+        totalPrice: totalPrice.replace('₱', '')
+    });
     
-    closeBooking();
+    window.location.href = 'seat-reservation.php?' + params.toString();
 }
 
 // Reset booking form
