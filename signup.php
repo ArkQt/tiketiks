@@ -27,8 +27,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (mb_strlen($firstName) == 0) {
         die("Error: First name cannot be empty.");
     }
-    if (mb_strlen($lastName) > 20) {
-        die("Error: Last name must be 20 characters or fewer.");
+    if (mb_strlen($lastName) > 50) {
+        die("Error: Last name must be 50 characters or fewer.");
     }
     if (mb_strlen($lastName) == 0) {
         die("Error: Last name cannot be empty.");
