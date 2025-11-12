@@ -1,5 +1,131 @@
 <?php
 session_start();
+require_once 'config.php';
+
+// Fetch movies from database
+$conn = getDBConnection();
+$today = date('Y-m-d');
+
+// Check if now_showing column exists
+$columns_check = $conn->query("SHOW COLUMNS FROM MOVIE LIKE 'now_showing'");
+$has_now_showing = $columns_check && $columns_check->num_rows > 0;
+
+// Check if carousel_image column exists
+$carousel_check = $conn->query("SHOW COLUMNS FROM MOVIE LIKE 'carousel_image'");
+$has_carousel_image = $carousel_check && $carousel_check->num_rows > 0;
+
+// Fetch Now Showing movies
+if ($has_now_showing) {
+    // If now_showing column exists, include movies marked as now_showing OR with schedules >= today
+    // BUT EXCLUDE movies marked as coming_soon (coming_soon takes priority)
+    // Explicitly select carousel_image if column exists
+    $carousel_select = $has_carousel_image ? ", m.carousel_image" : "";
+    $nowShowingQuery = $conn->query("
+        SELECT DISTINCT m.movie_show_id, m.title, m.genre, m.duration, m.rating, m.movie_descrp, m.image_poster{$carousel_select}, m.now_showing, m.coming_soon
+        FROM MOVIE m
+        LEFT JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
+        WHERE (m.coming_soon = FALSE OR m.coming_soon IS NULL)
+        AND (m.now_showing = TRUE OR (ms.show_date >= '$today' AND ms.show_date IS NOT NULL))
+        GROUP BY m.movie_show_id, m.title, m.genre, m.duration, m.rating, m.movie_descrp, m.image_poster" . ($has_carousel_image ? ", m.carousel_image" : "") . ", m.now_showing, m.coming_soon
+        ORDER BY m.title ASC
+        LIMIT 10
+    ");
+} else {
+    // If column doesn't exist, use schedules only
+    $carousel_select = $has_carousel_image ? ", m.carousel_image" : "";
+    $nowShowingQuery = $conn->query("
+        SELECT DISTINCT m.movie_show_id, m.title, m.genre, m.duration, m.rating, m.movie_descrp, m.image_poster{$carousel_select}
+        FROM MOVIE m
+        INNER JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
+        WHERE ms.show_date >= '$today'
+        GROUP BY m.movie_show_id, m.title, m.genre, m.duration, m.rating, m.movie_descrp, m.image_poster" . ($has_carousel_image ? ", m.carousel_image" : "") . "
+        ORDER BY m.title ASC
+        LIMIT 10
+    ");
+}
+
+$nowShowingMovies = [];
+if ($nowShowingQuery) {
+    while ($row = $nowShowingQuery->fetch_assoc()) {
+        $nowShowingMovies[] = $row;
+    }
+}
+
+// If no movies found and now_showing column exists, show all movies marked as now_showing (excluding coming_soon)
+if (empty($nowShowingMovies) && $has_now_showing) {
+    $carousel_select_fallback = $has_carousel_image ? ", carousel_image" : "";
+    $fallbackQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback}, now_showing, coming_soon FROM MOVIE WHERE now_showing = TRUE AND (coming_soon = FALSE OR coming_soon IS NULL) ORDER BY title ASC LIMIT 10");
+    if ($fallbackQuery) {
+        while ($row = $fallbackQuery->fetch_assoc()) {
+            $nowShowingMovies[] = $row;
+        }
+    }
+}
+
+// Final fallback: if still no movies, show all movies EXCEPT coming_soon (for testing - remove in production)
+if (empty($nowShowingMovies)) {
+    $carousel_select_fallback = $has_carousel_image ? ", carousel_image" : "";
+    if ($has_now_showing) {
+        $allMoviesQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback}, now_showing, coming_soon FROM MOVIE WHERE (coming_soon = FALSE OR coming_soon IS NULL) ORDER BY title ASC LIMIT 10");
+    } else {
+        $allMoviesQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback} FROM MOVIE ORDER BY title ASC LIMIT 10");
+    }
+    if ($allMoviesQuery) {
+        while ($row = $allMoviesQuery->fetch_assoc()) {
+            $nowShowingMovies[] = $row;
+        }
+    }
+}
+
+// Fetch Coming Soon movies
+if ($has_now_showing) {
+    // If coming_soon column exists, include movies marked as coming_soon OR with schedules > today
+    $comingSoonQuery = $conn->query("
+        SELECT DISTINCT m.*, MIN(ms.show_date) AS earliest_date
+        FROM MOVIE m
+        LEFT JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
+        WHERE (m.coming_soon = TRUE OR (ms.show_date > '$today' AND ms.show_date IS NOT NULL))
+        AND (m.now_showing = FALSE OR m.now_showing IS NULL)
+        GROUP BY m.movie_show_id
+        ORDER BY m.title ASC
+        LIMIT 10
+    ");
+} else {
+    // If column doesn't exist, use schedules only
+    $comingSoonQuery = $conn->query("
+        SELECT DISTINCT m.*, MIN(ms.show_date) AS earliest_date
+        FROM MOVIE m
+        INNER JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
+        WHERE ms.show_date > '$today'
+        AND m.movie_show_id NOT IN (
+            SELECT DISTINCT movie_show_id 
+            FROM MOVIE_SCHEDULE 
+            WHERE show_date = '$today'
+        )
+        GROUP BY m.movie_show_id
+        ORDER BY m.title ASC
+        LIMIT 10
+    ");
+}
+
+$comingSoonMovies = [];
+if ($comingSoonQuery) {
+    while ($row = $comingSoonQuery->fetch_assoc()) {
+        $comingSoonMovies[] = $row;
+    }
+}
+
+// If no movies found and coming_soon column exists, show all movies marked as coming_soon
+if (empty($comingSoonMovies) && $has_now_showing) {
+    $fallbackQuery = $conn->query("SELECT * FROM MOVIE WHERE coming_soon = TRUE AND (now_showing = FALSE OR now_showing IS NULL) ORDER BY title ASC LIMIT 10");
+    if ($fallbackQuery) {
+        while ($row = $fallbackQuery->fetch_assoc()) {
+            $comingSoonMovies[] = $row;
+        }
+    }
+}
+
+$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -38,7 +164,7 @@ session_start();
 
   <div class="right-section">
     <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
-      <a href="seat-reservation.php" class="ticket-btn" style="text-decoration: none; display: inline-block; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer;">Buy Tickets</a>
+      <a href="branch-selection.php" class="ticket-btn" style="text-decoration: none; display: inline-block; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer;">Buy Tickets</a>
     <?php else: ?>
       <a href="login.php" class="ticket-btn" style="text-decoration: none; display: inline-block; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer;">Buy Tickets</a>
     <?php endif; ?>
@@ -64,17 +190,17 @@ session_start();
           </div>
           <div class="dropdown-divider"></div>
           <a href="account-settings.php" class="dropdown-item">
-            <i class="dropdown-icon">⚙️</i> Account Settings
+            <class="dropdown-icon">⚙️ Account Settings
           </a>
           <a href="my-bookings.php" class="dropdown-item">
-            <i class="dropdown-icon">🎫</i> My Bookings
+            <class="dropdown-icon">📅 My Bookings
           </a>
           <a href="profile.php" class="dropdown-item">
-            <i class="dropdown-icon">👤</i> My Profile
+            <class="dropdown-icon">👤 My Profile
           </a>
           <div class="dropdown-divider"></div>
           <a href="logout.php" class="dropdown-item">
-            <i class="dropdown-icon">🚪</i> Logout
+            <class="dropdown-icon">➜] Logout
           </a>
         </div>
       </div>
@@ -85,187 +211,157 @@ session_start();
   </header>
 
   <section id="home" class="hero">
-  <button class="arrow left" onclick="changeSlide(-1)">&#10094;</button>
+  <?php 
+  // Calculate carousel movies count
+  if (!empty($nowShowingMovies)) {
+    $carouselMovies = array_slice($nowShowingMovies, 0, 5);
+    $carouselCount = count($carouselMovies);
+  } else {
+    $carouselCount = 1; // Fallback slide
+  }
+  $showNavigation = $carouselCount > 1; // Only show navigation if more than 1 movie
+  ?>
+  
+  <?php if ($showNavigation): ?>
+    <button class="arrow left" onclick="changeSlide(-1)">&#10094;</button>
+  <?php endif; ?>
 
   <div class="hero-slides">
-    <!-- Slide 1: Tron: Ares -->
-    <div class="hero-slide active">
-      <div class="hero-background" style="background-image: url('images/TRON.png');"></div>
-      <div class="hero-content">
-        <h1>Tron: Ares</h1>
-        <p>Now Showing</p>
+    <?php if (!empty($nowShowingMovies)): ?>
+      <?php 
+      $slideIndex = 0;
+      foreach ($carouselMovies as $movie): 
+        $slideIndex++;
+        // Use carousel_image if available, otherwise fallback to image_poster, then default
+        // Check if carousel_image exists in array and has a non-empty value
+        $carouselImg = isset($movie['carousel_image']) ? trim($movie['carousel_image']) : '';
+        $posterImg = isset($movie['image_poster']) ? trim($movie['image_poster']) : '';
+        
+        if (!empty($carouselImg) && $carouselImg !== '') {
+            $imageUrl = htmlspecialchars($carouselImg);
+        } else if (!empty($posterImg) && $posterImg !== '') {
+            $imageUrl = htmlspecialchars($posterImg);
+        } else {
+            $imageUrl = 'images/default-movie.jpg';
+        }
+        $title = htmlspecialchars($movie['title']);
+      ?>
+        <div class="hero-slide <?php echo $slideIndex === 1 ? 'active' : ''; ?>">
+          <div class="hero-background" style="background-image: url('<?php echo $imageUrl; ?>');"></div>
+          <div class="hero-content">
+            <h1><?php echo $title; ?></h1>
+            <p>Now Showing</p>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <!-- Fallback: Show default slide if no movies -->
+      <div class="hero-slide active">
+        <div class="hero-background" style="background-image: url('images/default-movie.jpg');"></div>
+        <div class="hero-content">
+          <h1>Welcome to Ticketix</h1>
+          <p>Check back soon for upcoming movies!</p>
+        </div>
       </div>
-    </div>
-
-    <!-- Slide 2: Chainsaw Man -->
-    <div class="hero-slide">
-      <div class="hero-background" style="background-image: url('images/chainsawmanbd.png');"></div>
-      <div class="hero-content">
-        <h1>Chainsaw Man</h1>
-        <p>Now Showing</p>
-      </div>
-    </div>
-
-    <!-- Slide 3: Black Phone -->
-    <div class="hero-slide">
-      <div class="hero-background" style="background-image: url('images/blackphonebd.png');"></div>
-      <div class="hero-content">
-        <h1>Black Phone</h1>
-        <p>Now Showing</p>
-      </div>
-    </div>
-
-    <!-- Slide 4: Goodboy -->
-    <div class="hero-slide">
-      <div class="hero-background" style="background-image: url('images/goodboybd.png');"></div>
-      <div class="hero-content">
-        <h1>Good Boy</h1>
-        <p>Now Showing</p>
-      </div>
-    </div>
-
-    <!-- Slide 5: Quezon -->
-    <div class="hero-slide">
-      <div class="hero-background" style="background-image: url('images/QUEZON.jpg');"></div>
-      <div class="hero-content">
-        <h1>Quezon</h1>
-        <p>Now Showing</p>
-      </div>
-    </div>
+    <?php endif; ?>
   </div>
 
-  <button class="arrow right" onclick="changeSlide(1)">&#10095;</button>
+  <?php if ($showNavigation): ?>
+    <button class="arrow right" onclick="changeSlide(1)">&#10095;</button>
+  <?php endif; ?>
   
   <!-- Slide indicators -->
-  <div class="slide-indicators">
-    <span class="indicator active" onclick="currentSlide(1)"></span>
-    <span class="indicator" onclick="currentSlide(2)"></span>
-    <span class="indicator" onclick="currentSlide(3)"></span>
-    <span class="indicator" onclick="currentSlide(4)"></span>
-    <span class="indicator" onclick="currentSlide(5)"></span>
-  </div>
+  <?php if ($showNavigation): ?>
+    <div class="slide-indicators">
+      <?php if (!empty($nowShowingMovies)): ?>
+        <?php 
+        $indicatorIndex = 0;
+        foreach ($carouselMovies as $movie): 
+          $indicatorIndex++;
+        ?>
+          <span class="indicator <?php echo $indicatorIndex === 1 ? 'active' : ''; ?>" onclick="currentSlide(<?php echo $indicatorIndex; ?>)"></span>
+        <?php endforeach; ?>
+      <?php else: ?>
+        <span class="indicator active" onclick="currentSlide(1)"></span>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
 </section>
 
 
   <section id="now-showing">
     <h2>Now Showing</h2>
     <div class="movie-grid">
-      <div class="movie" onclick="openMovieModal('Tron: Ares', 'Sci-Fi/Action', '2h 15m', 'PG-13', 'images/tronp.png')">
-        <img src="images/tronp.png" alt="Tron: Ares">
-        <div class="movie-overlay">
-          <div class="movie-info">
-            <h3>Tron: Ares</h3>
-            <p>Sci-Fi/Action • 2h 15m • PG-13</p>
-            <div class="movie-actions">
-              <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Tron: Ares')">▶ Trailer</button>
-              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Tron: Ares'); return false;">🎟 Buy Tickets</a>
+      <?php if (count($nowShowingMovies) > 0): ?>
+        <?php foreach ($nowShowingMovies as $movie): 
+          // Format duration: convert minutes to hours format
+          $duration_min = intval($movie['duration'] ?? 0);
+          $hours = floor($duration_min / 60);
+          $minutes = $duration_min % 60;
+          $duration_formatted = $hours > 0 ? $hours . 'h ' . $minutes . 'm' : $minutes . 'm';
+          
+          $title = htmlspecialchars($movie['title']);
+          $genre = htmlspecialchars($movie['genre']);
+          $rating = htmlspecialchars($movie['rating'] ?: 'N/A');
+          $image = htmlspecialchars($movie['image_poster'] ?: 'images/default.png');
+          // Get description from database and escape for HTML attribute
+          $description = !empty($movie['movie_descrp']) ? htmlspecialchars($movie['movie_descrp'], ENT_QUOTES, 'UTF-8') : 'No description available.';
+        ?>
+          <div class="movie" onclick="openMovieModal(this)" data-title="<?= $title ?>" data-genre="<?= $genre ?>" data-duration="<?= $duration_formatted ?>" data-rating="<?= $rating ?>" data-poster="<?= $image ?>" data-description="<?= $description ?>">
+            <img src="<?= $image ?>" alt="<?= $title ?>">
+            <div class="movie-overlay">
+              <div class="movie-info">
+                <h3><?= $title ?></h3>
+                <p><?= $genre ?> • <?= $duration_formatted ?> • <?= $rating ?></p>
+                <div class="movie-actions">
+                  <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('<?= $title ?>')">▶ Trailer</button>
+                  <a href="seat-reservation.php?movie=<?= urlencode($title) ?>" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); return true;">🎟 Buy Tickets</a>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      <div class="movie" onclick="openMovieModal('Chainsaw Man', 'Action/Horror', '1h 45m', 'R', 'images/CHAINSAWMAN.jpg')">
-        <img src="images/CHAINSAWMAN.jpg" alt="Chainsaw Man">
-        <div class="movie-overlay">
-          <div class="movie-info">
-            <h3>Chainsaw Man</h3>
-            <p>Action/Horror • 1h 45m • R</p>
-            <div class="movie-actions">
-              <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Chainsaw Man')">▶ Trailer</button>
-              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Chainsaw Man'); return false;">🎟 Buy Tickets</a>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="movie" onclick="openMovieModal('Black Phone', 'Horror/Thriller', '1h 43m', 'R', 'images/BLACKPHONE.png')">
-        <img src="images/BLACKPHONE.png" alt="Black Phone">
-        <div class="movie-overlay">
-          <div class="movie-info">
-            <h3>Black Phone</h3>
-            <p>Horror/Thriller • 1h 43m • R</p>
-            <div class="movie-actions">
-              <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Black Phone')">▶ Trailer</button>
-              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Black Phone'); return false;">🎟 Buy Tickets</a>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="movie" onclick="openMovieModal('Good Boy', 'Comedy/Family', '1h 30m', 'PG', 'images/GOODBOY.png')">
-        <img src="images/GOODBOY.png" alt="Good Boy">
-        <div class="movie-overlay">
-          <div class="movie-info">
-            <h3>Good Boy</h3>
-            <p>Comedy/Family • 1h 30m • PG</p>
-            <div class="movie-actions">
-              <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Good Boy')">▶ Trailer</button>
-              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Good Boy'); return false;">🎟 Buy Tickets</a>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="movie" onclick="openMovieModal('Quezon', 'Drama/Historical', '2h 30m', 'PG-13', 'images/QUEZON.jpg')">
-        <img src="images/QUEZON.jpg" alt="Quezon">
-        <div class="movie-overlay">
-          <div class="movie-info">
-            <h3>Quezon</h3>
-            <p>Drama/Historical • 2h 30m • PG-13</p>
-            <div class="movie-actions">
-              <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('Quezon')">▶ Trailer</button>
-              <a href="#" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); goToSeatReservation('Quezon'); return false;">🎟 Buy Tickets</a>
-            </div>
-          </div>
-        </div>
-      </div>
+        <?php endforeach; ?>
+      <?php else: ?>
+        <p style="text-align: center; color: #ccc; grid-column: 1 / -1; padding: 40px;">No movies currently showing. Check back soon!</p>
+      <?php endif; ?>
     </div>
   </section>
 
   <section id="coming-soon">
     <h2>Coming Soon</h2>
     <div class="movie-grid">
-      <div class="movie">
-        <img src="images/ONEINAMILLION.png" alt="One in a Million">
-        <div class="movie-info">
-          <h3>One in a Million</h3>
-          <p>Romance/Drama • 2h 5m • PG-13</p>
-          <p class="release-date">March 15, 2025</p>
-          <button class="notify-btn">Notify Me</button>
-        </div>
-      </div>
-      <div class="movie">
-        <img src="images/SHELBY.png" alt="Shelby">
-        <div class="movie-info">
-          <h3>Shelby</h3>
-          <p>Action/Thriller • 1h 55m • R</p>
-          <p class="release-date">March 22, 2025</p>
-          <button class="notify-btn">Notify Me</button>
-        </div>
-      </div>
-      <div class="movie">
-        <img src="images/NOWYOUSEEME.jpg" alt="Now You See Me">
-        <div class="movie-info">
-          <h3>Now You See Me 3</h3>
-          <p>Thriller/Mystery • 2h 10m • PG-13</p>
-          <p class="release-date">April 5, 2025</p>
-          <button class="notify-btn">Notify Me</button>
-        </div>
-      </div>
-      <div class="movie">
-        <img src="images/PREDATOR.jpg" alt="Predator">
-        <div class="movie-info">
-          <h3>Predator: The Hunt</h3>
-          <p>Sci-Fi/Horror • 1h 50m • R</p>
-          <p class="release-date">April 12, 2025</p>
-          <button class="notify-btn">Notify Me</button>
-        </div>
-      </div>
-      <div class="movie">
-        <img src="images/MEETGREETBYE.jpg" alt="Meet Greet Bye">
-        <div class="movie-info">
-          <h3>Meet Greet Bye</h3>
-          <p>Comedy/Romance • 1h 40m • PG</p>
-          <p class="release-date">April 20, 2025</p>
-          <button class="notify-btn">Notify Me</button>
-        </div>
-      </div>
+      <?php if (count($comingSoonMovies) > 0): ?>
+        <?php foreach ($comingSoonMovies as $movie): 
+          // Format duration: convert minutes to hours format
+          $duration_min = intval($movie['duration'] ?? 0);
+          $hours = floor($duration_min / 60);
+          $minutes = $duration_min % 60;
+          $duration_formatted = $hours > 0 ? $hours . 'h ' . $minutes . 'm' : $minutes . 'm';
+          
+          $title = htmlspecialchars($movie['title']);
+          $genre = htmlspecialchars($movie['genre']);
+          $rating = htmlspecialchars($movie['rating'] ?: 'N/A');
+          $image = htmlspecialchars($movie['image_poster'] ?: 'images/default.png');
+          
+          // Get release date from query result
+          $releaseDate = 'Coming Soon';
+          if (!empty($movie['earliest_date'])) {
+            $releaseDate = date('F d, Y', strtotime($movie['earliest_date']));
+          }
+        ?>
+          <div class="movie">
+            <img src="<?= $image ?>" alt="<?= $title ?>">
+            <div class="movie-info">
+              <h3><?= $title ?></h3>
+              <p><?= $genre ?> • <?= $duration_formatted ?> • <?= $rating ?></p>
+              <p class="release-date"><?= $releaseDate ?></p>
+              <button class="notify-btn" onclick="alert('We will notify you when <?= $title ?> becomes available!')">Notify Me</button>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      <?php else: ?>
+        <p style="text-align: center; color: #ccc; grid-column: 1 / -1; padding: 40px;">No upcoming movies. Check back soon!</p>
+      <?php endif; ?>
     </div>
   </section>
 
@@ -362,7 +458,7 @@ session_start();
         <p id="modalMovieDuration">Duration</p>
         <p id="modalMovieRating">Rating</p>
         <div class="movie-description">
-          <p>Experience the ultimate cinematic adventure with stunning visuals and an unforgettable story.</p>
+          <p id="modalMovieDescription">Experience the ultimate cinematic adventure with stunning visuals and an unforgettable story.</p>
         </div>
         <div class="modal-actions">
           <!-- Removed the Watch Trailer button -->
@@ -483,6 +579,11 @@ function showSlide(index) {
 }
 
 function changeSlide(direction) {
+    // Don't allow navigation if there's only one slide
+    if (slides.length <= 1) {
+        return;
+    }
+    
     currentSlideIndex += direction;
     
     // Handle wrap-around
@@ -496,6 +597,11 @@ function changeSlide(direction) {
 }
 
 function currentSlide(index) {
+    // Don't allow navigation if there's only one slide
+    if (slides.length <= 1) {
+        return;
+    }
+    
     currentSlideIndex = index - 1; // Convert to 0-based index
     showSlide(currentSlideIndex);
 }
@@ -504,6 +610,10 @@ function currentSlide(index) {
 let autoPlayInterval;
 
 function startAutoPlay() {
+    // Don't start auto-play if there's only one slide
+    if (slides.length <= 1) {
+        return;
+    }
     autoPlayInterval = setInterval(() => {
         changeSlide(1);
     }, 5000); // Change slide every 5 seconds
@@ -696,13 +806,22 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Movie Detail Modal Functions
-function openMovieModal(title, genre, duration, rating, posterSrc) {
+function openMovieModal(element) {
+    // Get data from the clicked element's data attributes
+    const title = element.getAttribute('data-title');
+    const genre = element.getAttribute('data-genre');
+    const duration = element.getAttribute('data-duration');
+    const rating = element.getAttribute('data-rating');
+    const posterSrc = element.getAttribute('data-poster');
+    const description = element.getAttribute('data-description') || 'No description available.';
+    
     document.getElementById('modalMovieTitle').textContent = title;
     document.getElementById('modalMovieGenre').textContent = 'Genre: ' + genre;
     document.getElementById('modalMovieDuration').textContent = 'Duration: ' + duration;
     document.getElementById('modalMovieRating').textContent = 'Rating: ' + rating;
     document.getElementById('modalMoviePoster').src = posterSrc;
     document.getElementById('modalMoviePoster').alt = title + ' Poster';
+    document.getElementById('modalMovieDescription').textContent = description;
     document.getElementById('movieModal').style.display = 'block';
     stopAutoPlay(); // Pause carousel when modal opens
 }

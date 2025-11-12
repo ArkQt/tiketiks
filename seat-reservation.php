@@ -1,5 +1,8 @@
 <?php
 // --- PHP LOGIC START ---
+require_once __DIR__ . '/config.php';
+$conn = getDBConnection();
+
 $timings = ["06:30 AM", "09:30 AM", "12:00 PM", "04:30 PM", "08:00 PM"];
 $selectedTime = $_GET['time'] ?? '06:30 AM'; // get selected time or default
 // --- PHP LOGIC END ---
@@ -133,69 +136,36 @@ $selectedTime = $_GET['time'] ?? '06:30 AM'; // get selected time or default
         <aside class="movie-info">
             <h3>SM Mall of Asia</h3>
             <div class="movie-poster">
-                <img src="img/toxic-avenger.jpg" alt="Movie Poster">
+                <img src="images/tronp.png" alt="Movie Poster">
             </div>
 
             <div class="food-section">
                 <h4>Food Selection</h4>
+
+                <!-- === DATABASE-DRIVEN FOOD GRID === -->
                 <div class="food-grid">
-                    <div class="food-item" data-item="All-In Combo">
-                        <img src="images/all-in.png" alt="All-In Combo">
-                        <div class="food-controls">
-                            <button class="decrease">−</button>
-                            <span class="count">0</span>
-                            <button class="increase">+</button>
-                        </div>
-                    </div>
-                    <div class="food-item" data-item="Hotdog & Coke">
-                        <img src="images/hotdog-coke.png" alt="Hotdog & Coke">
-                        <div class="food-controls">
-                            <button class="decrease">−</button>
-                            <span class="count">0</span>
-                            <button class="increase">+</button>
-                        </div>
-                    </div>
-                    <div class="food-item" data-item="Fries & Coke">
-                        <img src="images/fries-coke.png" alt="Fries & Coke">
-                        <div class="food-controls">
-                            <button class="decrease">−</button>
-                            <span class="count">0</span>
-                            <button class="increase">+</button>
-                        </div>
-                    </div>
-                    <div class="food-item" data-item="Fries">
-                        <img src="images/fries-solo.png" alt="Fries">
-                        <div class="food-controls">
-                            <button class="decrease">−</button>
-                            <span class="count">0</span>
-                            <button class="increase">+</button>
-                        </div>
-                    </div>
-                    <div class="food-item" data-item="Hotdog">
-                        <img src="images/hotdog-solo.png" alt="Hotdog">
-                        <div class="food-controls">
-                            <button class="decrease">−</button>
-                            <span class="count">0</span>
-                            <button class="increase">+</button>
-                        </div>
-                    </div>
-                    <div class="food-item" data-item="Coke">
-                        <img src="images/coke-solo.png" alt="Coke">
-                        <div class="food-controls">
-                            <button class="decrease">−</button>
-                            <span class="count">0</span>
-                            <button class="increase">+</button>
-                        </div>
-                    </div>
-                    <div class="food-item" data-item="Popcorn">
-                        <img src="images/popcorn-solo.png" alt="Popcorn">
-                        <div class="food-controls">
-                            <button class="decrease">−</button>
-                            <span class="count">0</span>
-                            <button class="increase">+</button>
-                        </div>
-                    </div>
+                    <?php
+                    $foodsQuery = $conn->query("SELECT * FROM FOOD");
+                    if ($foodsQuery && $foodsQuery->num_rows > 0) {
+                        while ($food = $foodsQuery->fetch_assoc()) {
+                            echo "
+                            <div class='food-item' data-item='{$food['food_name']}'>
+                                <img src='{$food['image_path']}' alt='{$food['food_name']}'>
+                                <div class='food-price'>₱{$food['food_price']}</div>
+                                <div class='food-controls'>
+                                    <button class='decrease'>−</button>
+                                    <span class='count'>0</span>
+                                    <button class='increase'>+</button>
+                                </div>
+                            </div>";
+                        }
+                    } else {
+                        echo "<p>No foods available.</p>";
+                    }
+                    ?>
                 </div>
+                <!-- === END FOOD GRID === -->
+
             </div>
         </aside>
     </div>

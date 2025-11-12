@@ -6,6 +6,7 @@ ticketix_load_env(__DIR__ . '/.env');
 // Database configuration (env first, fallback to local defaults)
 define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 define('DB_USERNAME', getenv('DB_USERNAME') ?: 'root');
+// MySQL root password - update this if your MySQL root password is different
 define('DB_PASSWORD', getenv('DB_PASSWORD') !== false ? getenv('DB_PASSWORD') : '062006');
 define('DB_NAME', getenv('DB_NAME') ?: 'ticketix');
 

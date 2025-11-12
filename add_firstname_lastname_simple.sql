@@ -31,4 +31,3 @@ SET
 WHERE fullName IS NOT NULL AND fullName != '';
 
 SELECT 'Success! firstName and lastName columns have been added.' AS result;
-

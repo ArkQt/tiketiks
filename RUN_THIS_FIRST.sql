@@ -16,4 +16,3 @@ ALTER TABLE USER_ACCOUNT MODIFY COLUMN fullName VARCHAR(50) NULL;
 
 -- Done! Now try signing up again.
 -- The signup will save to firstName and lastName, and also populate fullName automatically.
-

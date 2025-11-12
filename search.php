@@ -8,41 +8,109 @@ $search_results = [];
 
 if (!empty($search_query)) {
     $conn = getDBConnection();
+    $today = date('Y-m-d');
     
     // Search in movies (both now showing and coming soon)
     $search_query_escaped = $conn->real_escape_string($search_query);
     
-    // Search in MOVIE table
-    $movie_sql = "
-    SELECT 
-        m.movie_show_id,
-        m.title,
-        m.genre,
-        m.duration,
-        m.rating,
-        m.movie_descrp,
-        m.image_poster,
-        MIN(ms.show_date) AS show_date,
-        MIN(ms.show_hour) AS show_hour,
-        CASE 
-            WHEN MIN(ms.show_date) >= CURDATE() THEN 'now-showing'
-            ELSE 'coming-soon'
-        END AS movie_status
-    FROM MOVIE m
-    LEFT JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
-    WHERE m.title LIKE '%$search_query_escaped%' 
-       OR m.genre LIKE '%$search_query_escaped%' 
-       OR m.movie_descrp LIKE '%$search_query_escaped%'
-    GROUP BY 
-        m.movie_show_id, 
-        m.title, 
-        m.genre, 
-        m.duration, 
-        m.rating, 
-        m.movie_descrp, 
-        m.image_poster
-    ORDER BY m.title;
-";
+    // Check if now_showing and coming_soon columns exist
+    $columns_check = $conn->query("SHOW COLUMNS FROM MOVIE LIKE 'now_showing'");
+    $has_now_showing = $columns_check && $columns_check->num_rows > 0;
+    
+    // Search in MOVIE table with proper status determination
+    // Use the same logic as the main page to determine movie status
+    if ($has_now_showing) {
+        // If columns exist, use flags and schedule dates
+        $movie_sql = "
+        SELECT 
+            m.movie_show_id,
+            m.title,
+            m.genre,
+            m.duration,
+            m.rating,
+            m.movie_descrp,
+            m.image_poster,
+            m.now_showing,
+            m.coming_soon,
+            MIN(ms.show_date) AS show_date,
+            MIN(ms.show_hour) AS show_hour,
+            CASE 
+                WHEN (m.coming_soon = TRUE) THEN 'coming-soon'
+                WHEN (m.now_showing = TRUE OR EXISTS (
+                    SELECT 1 
+                    FROM MOVIE_SCHEDULE ms2 
+                    WHERE ms2.movie_show_id = m.movie_show_id 
+                    AND ms2.show_date >= '$today'
+                )) THEN 'now-showing'
+                WHEN EXISTS (
+                    SELECT 1 
+                    FROM MOVIE_SCHEDULE ms3 
+                    WHERE ms3.movie_show_id = m.movie_show_id 
+                    AND ms3.show_date > '$today'
+                ) THEN 'coming-soon'
+                ELSE 'coming-soon'
+            END AS movie_status
+        FROM MOVIE m
+        LEFT JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
+        WHERE (m.title LIKE '%$search_query_escaped%' 
+           OR m.genre LIKE '%$search_query_escaped%' 
+           OR m.movie_descrp LIKE '%$search_query_escaped%')
+        GROUP BY 
+            m.movie_show_id, 
+            m.title, 
+            m.genre, 
+            m.duration, 
+            m.rating, 
+            m.movie_descrp, 
+            m.image_poster,
+            m.now_showing,
+            m.coming_soon
+        ORDER BY m.title;
+        ";
+    } else {
+        // If columns don't exist, use schedule dates only
+        $movie_sql = "
+        SELECT 
+            m.movie_show_id,
+            m.title,
+            m.genre,
+            m.duration,
+            m.rating,
+            m.movie_descrp,
+            m.image_poster,
+            MIN(ms.show_date) AS show_date,
+            MIN(ms.show_hour) AS show_hour,
+            CASE 
+                WHEN EXISTS (
+                    SELECT 1 
+                    FROM MOVIE_SCHEDULE ms2 
+                    WHERE ms2.movie_show_id = m.movie_show_id 
+                    AND ms2.show_date >= '$today'
+                ) THEN 'now-showing'
+                WHEN EXISTS (
+                    SELECT 1 
+                    FROM MOVIE_SCHEDULE ms3 
+                    WHERE ms3.movie_show_id = m.movie_show_id 
+                    AND ms3.show_date > '$today'
+                ) THEN 'coming-soon'
+                ELSE 'coming-soon'
+            END AS movie_status
+        FROM MOVIE m
+        LEFT JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
+        WHERE m.title LIKE '%$search_query_escaped%' 
+           OR m.genre LIKE '%$search_query_escaped%' 
+           OR m.movie_descrp LIKE '%$search_query_escaped%'
+        GROUP BY 
+            m.movie_show_id, 
+            m.title, 
+            m.genre, 
+            m.duration, 
+            m.rating, 
+            m.movie_descrp, 
+            m.image_poster
+        ORDER BY m.title;
+        ";
+    }
 
     
     $movie_result = $conn->query($movie_sql);
@@ -74,19 +142,76 @@ if (!empty($search_query)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search Results - Ticketix</title>
-    <link rel="icon" type="image/png" href="brand x.png">
+    <link rel="icon" type="image/png" href="images/brand x.png">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/ticketix-main.css">
     <style>
+        body {
+            padding-top: 70px; /* Add padding to account for fixed header */
+        }
+        
+        /* Different layout for non-logged-in users */
+        body.not-logged-in {
+            background: linear-gradient(135deg, rgba(11, 11, 11, 0.95), rgba(30, 30, 30, 0.95)) !important;
+        }
+        
+        .login-prompt-banner {
+            background: linear-gradient(to right, #00BFFF, #3C50B2);
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 191, 255, 0.3);
+        }
+        
+        .login-prompt-banner p {
+            margin: 0;
+            font-size: 16px;
+        }
+        
+        .login-prompt-banner a {
+            color: white;
+            font-weight: bold;
+            text-decoration: underline;
+            margin-left: 10px;
+        }
+        
+        .login-prompt-banner a:hover {
+            text-decoration: none;
+        }
+        
+        body.not-logged-in .search-result-card {
+            opacity: 0.9;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        body.not-logged-in .search-result-card:hover {
+            opacity: 1;
+            border-color: rgba(0, 191, 255, 0.5);
+        }
+        
         .search-container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 40px 20px;
+            margin-top: 20px;
         }
         
         .search-header {
             text-align: center;
             margin-bottom: 40px;
+        }
+        
+        .search-header h1 {
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .search-header p {
+            color: #ccc;
+            font-size: 1.1em;
         }
         
         .search-form {
@@ -102,6 +227,8 @@ if (!empty($search_query)) {
             border-radius: 25px 0 0 25px;
             width: 400px;
             outline: none;
+            background: white;
+            color: #333;
         }
         
         .search-btn {
@@ -127,48 +254,64 @@ if (!empty($search_query)) {
         }
         
         .search-result-card {
-            background: white;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(240, 248, 255, 0.95));
             border-radius: 15px;
             overflow: hidden;
             box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid rgba(0, 191, 255, 0.2);
         }
         
         .search-result-card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 191, 255, 0.3);
         }
         
         .search-result-image {
             width: 100%;
-            height: 200px;
+            height: 250px;
             object-fit: cover;
         }
         
         .search-result-content {
-            padding: 20px;
+            padding: 25px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
         }
         
         .search-result-title {
-            font-size: 1.3em;
+            font-size: 1.4em;
             font-weight: bold;
-            margin-bottom: 10px;
-            color: #333;
+            margin-bottom: 12px;
+            color: #ffffff;
+        }
+        
+        .search-result-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.95em;
         }
         
         .search-result-genre {
-            color: #666;
-            margin-bottom: 8px;
+            color: #00BFFF;
+            font-weight: 600;
         }
         
         .search-result-duration {
-            color: #888;
-            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        
+        .search-result-rating {
+            color: #FFD700;
+            font-weight: 600;
         }
         
         .search-result-description {
-            color: #555;
-            line-height: 1.4;
-            margin-bottom: 15px;
+            color: #e0e0e0;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 0.95em;
         }
         
         .search-result-status {
@@ -190,15 +333,63 @@ if (!empty($search_query)) {
             color: white;
         }
         
+        .search-result-actions {
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .ticket-btn {
+            background: linear-gradient(to right, #00BFFF, #3C50B2);
+            color: white;
+            width: 100%;
+        }
+        
+        .ticket-btn:hover {
+            background: linear-gradient(to right, #3C50B2, #00BFFF);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 191, 255, 0.4);
+        }
+        
+        .notify-btn {
+            background: linear-gradient(to right, #FF9800, #FF6B35);
+            color: white;
+            width: 100%;
+        }
+        
+        .notify-btn:hover {
+            background: linear-gradient(to right, #FF6B35, #FF9800);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+        
         .no-results {
             text-align: center;
             padding: 60px 20px;
-            color: #666;
+            color: #ccc;
         }
         
         .no-results h3 {
             margin-bottom: 15px;
-            color: #333;
+            color: white;
+            font-size: 2em;
+        }
+        
+        .no-results p {
+            color: #ccc;
+            font-size: 1.1em;
+            margin-bottom: 10px;
         }
         
         .back-to-home {
@@ -216,13 +407,127 @@ if (!empty($search_query)) {
             transform: translateY(-2px);
             color: white;
         }
+        
+        h2 {
+            color: white;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+        }
+
+        /* Navigation search form styling */
+        .nav-search-form {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: 20px;
+        }
+        
+        .nav-search-label {
+          color: #ccc;
+          font-size: 14px;
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        
+        .nav-search-input {
+          padding: 10px 18px;
+          font-size: 14px;
+          border: 2px solid rgba(0, 191, 255, 0.3);
+          border-radius: 25px 0 0 25px;
+          background: transparent;
+          color: white;
+          outline: none;
+          width: 220px;
+          transition: all 0.3s ease;
+        }
+        
+        .nav-search-input::placeholder {
+          color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .nav-search-input:focus {
+          border-color: #00BFFF;
+          background: rgba(255, 255, 255, 0.05);
+          width: 280px;
+          box-shadow: 0 0 15px rgba(0, 191, 255, 0.4);
+          color: white;
+        }
+        
+        .nav-search-input:focus::placeholder {
+          color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .nav-search-btn {
+          padding: 10px 15px;
+          background: transparent;
+          color: white;
+          border: 2px solid rgba(0, 191, 255, 0.3);
+          border-left: none;
+          border-radius: 0 25px 25px 0;
+          cursor: pointer;
+          font-size: 18px;
+          font-weight: 600;
+          transition: all 0.3s ease;
+          min-width: 50px;
+          height: 42px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+        }
+        
+        .nav-search-btn:hover {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(0, 191, 255, 0.5);
+          transform: scale(1.1);
+        }
+        
+        .nav-search-btn:active {
+          transform: scale(0.95);
+        }
+        
+        .nav-search-btn:focus {
+          outline: 2px solid rgba(0, 191, 255, 0.5);
+          outline-offset: 2px;
+          border-radius: 0 25px 25px 0;
+          border-color: #00BFFF;
+        }
+        
+        .nav-search-input:focus ~ .nav-search-btn {
+          border-color: #00BFFF;
+        }
+        
+        /* Responsive design for navigation search bar */
+        @media (max-width: 768px) {
+          .nav-search-form {
+            flex-direction: column;
+            gap: 10px;
+            margin-left: 0;
+            width: 100%;
+          }
+          
+          .nav-search-label {
+            display: none;
+          }
+          
+          .nav-search-input {
+            width: 100%;
+            border-radius: 25px;
+          }
+          
+          .nav-search-btn {
+            width: 100%;
+            border-radius: 25px;
+            min-width: auto;
+          }
+        }
     </style>
 </head>
-<body>
+<body <?php if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']): ?>class="not-logged-in"<?php endif; ?>>
     <header>
         <div class="left-section">
             <div class="logo">
-                <img src="images/brand x.png" alt="images/logo_sha">
+                <img src="images/brand x.png" alt="Ticketix Logo">
             </div>
             <nav>
                 <a href="TICKETIX NI CLAIRE.php#home">Home</a>
@@ -230,19 +535,65 @@ if (!empty($search_query)) {
                 <a href="TICKETIX NI CLAIRE.php#coming-soon">Coming Soon</a>
                 <a href="TICKETIX NI CLAIRE.php#contact">Contact Us</a>
             </nav>
+            
+            <form class="nav-search-form" method="GET" action="search.php">
+                <label for="nav-search" class="nav-search-label">Search Movies:</label>
+                <input type="text" id="nav-search" name="q" placeholder="Search..." class="nav-search-input" value="<?php echo htmlspecialchars($search_query); ?>" required>
+                <button type="submit" class="nav-search-btn">🔍</button>
+            </form>
         </div>
         <div class="right-section">
-            <button class="ticket-btn">Buy Tickets</button>
             <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
-                <span class="welcome-text">Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?>!</span>
-                <a href="logout.php" class="login-link"><i class="user-icon"></i> Logout</a>
+                <a href="seat-reservation.php" class="ticket-btn" style="text-decoration: none; display: inline-block; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer;">Buy Tickets</a>
+                <div class="user-profile">
+                    <button class="profile-button" onclick="toggleProfileDropdown()" aria-label="User Profile">
+                        <?php 
+                            $userName = htmlspecialchars($_SESSION['user_name']);
+                            $initials = '';
+                            $nameParts = explode(' ', $userName);
+                            if (count($nameParts) >= 2) {
+                                $initials = strtoupper(substr($nameParts[0], 0, 1) . substr($nameParts[count($nameParts) - 1], 0, 1));
+                            } else {
+                                $initials = strtoupper(substr($userName, 0, 2));
+                            }
+                        ?>
+                        <span class="profile-initials"><?php echo $initials; ?></span>
+                    </button>
+                    <div class="profile-dropdown" id="profileDropdown">
+                        <div class="dropdown-header">
+                            <div class="dropdown-header-initials"><?php echo $initials; ?></div>
+                            <div class="dropdown-header-name"><?php echo $userName; ?></div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a href="account-settings.php" class="dropdown-item">
+                            <i class="dropdown-icon">⚙️</i> Account Settings
+                        </a>
+                        <a href="my-bookings.php" class="dropdown-item">
+                            <i class="dropdown-icon">🎫</i> My Bookings
+                        </a>
+                        <a href="profile.php" class="dropdown-item">
+                            <i class="dropdown-icon">👤</i> My Profile
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="logout.php" class="dropdown-item">
+                            <i class="dropdown-icon">🚪</i> Logout
+                        </a>
+                    </div>
+                </div>
             <?php else: ?>
+                <a href="login.php" class="ticket-btn" style="text-decoration: none; display: inline-block; color: white; padding: 10px 25px; border-radius: 25px; cursor: pointer;">Buy Tickets</a>
                 <a href="login.php" class="login-link"><i class="user-icon"></i> Log In / Sign Up</a>
             <?php endif; ?>
         </div>
     </header>
 
     <div class="search-container">
+        <?php if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']): ?>
+            <div class="login-prompt-banner">
+                <p>Welcome! <a href="login.php">Sign in</a> to book tickets and access exclusive features.</p>
+            </div>
+        <?php endif; ?>
+        
         <div class="search-header">
             <h1>Search Movies</h1>
             <p>Find your favorite movies and discover new ones</p>
@@ -268,22 +619,37 @@ if (!empty($search_query)) {
                             
                             <div class="search-result-content">
                                 <h3 class="search-result-title"><?php echo htmlspecialchars($result['title']); ?></h3>
-                                <p class="search-result-genre"><?php echo htmlspecialchars($result['genre']); ?></p>
-                                <p class="search-result-duration"><?php echo htmlspecialchars($result['duration']); ?> minutes</p>
+                                
+                                <div class="search-result-meta">
+                                    <span class="search-result-genre"><?php echo htmlspecialchars($result['genre']); ?></span>
+                                    <?php 
+                                    // Format duration: convert minutes to hours format
+                                    $duration_min = intval($result['duration'] ?? 0);
+                                    $hours = floor($duration_min / 60);
+                                    $minutes = $duration_min % 60;
+                                    $duration_formatted = $hours > 0 ? $hours . 'h ' . $minutes . 'm' : $minutes . 'm';
+                                    ?>
+                                    <span class="search-result-duration"><?php echo $duration_formatted; ?></span>
+                                    <span class="search-result-rating"><?php echo htmlspecialchars($result['rating'] ?: 'N/A'); ?></span>
+                                </div>
                                 
                                 <span class="search-result-status status-<?php echo $result['status']; ?>">
                                     <?php echo ucfirst(str_replace('-', ' ', $result['status'])); ?>
                                 </span>
                                 
                                 <?php if (!empty($result['description'])): ?>
-                                    <p class="search-result-description"><?php echo htmlspecialchars(substr($result['description'], 0, 150)) . (strlen($result['description']) > 150 ? '...' : ''); ?></p>
+                                    <p class="search-result-description"><?php echo htmlspecialchars($result['description']); ?></p>
+                                <?php else: ?>
+                                    <p class="search-result-description" style="color: #b0b0b0; font-style: italic;">No description available.</p>
                                 <?php endif; ?>
                                 
-                                <?php if ($result['status'] === 'now-showing'): ?>
-                                    <button class="btn ticket-btn" onclick="window.location.href='TICKETIX NI CLAIRE.php#now-showing'">Book Tickets</button>
-                                <?php else: ?>
-                                    <button class="btn notify-btn" onclick="alert('We will notify you when this movie becomes available!')">Notify Me</button>
-                                <?php endif; ?>
+                                <div class="search-result-actions">
+                                    <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+                                        <a href="seat-reservation.php?movie=<?php echo urlencode($result['title']); ?>" class="btn ticket-btn">🎟 Buy Tickets</a>
+                                    <?php else: ?>
+                                        <a href="login.php" class="btn ticket-btn">Login to Buy Tickets</a>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -304,5 +670,58 @@ if (!empty($search_query)) {
             </div>
         <?php endif; ?>
     </div>
+
+<script>
+// Profile Dropdown Functions
+function toggleProfileDropdown() {
+  const dropdown = document.getElementById('profileDropdown');
+  const button = document.querySelector('.profile-button');
+  
+  if (dropdown && button) {
+    const isShowing = dropdown.classList.contains('show');
+    
+    if (isShowing) {
+      dropdown.classList.remove('show');
+      button.classList.remove('active');
+    } else {
+      dropdown.classList.add('show');
+      button.classList.add('active');
+    }
+  }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+  const profile = document.querySelector('.user-profile');
+  const dropdown = document.getElementById('profileDropdown');
+  const button = document.querySelector('.profile-button');
+  
+  if (profile && dropdown && button) {
+    if (!profile.contains(event.target)) {
+      dropdown.classList.remove('show');
+      button.classList.remove('active');
+    }
+  }
+});
+
+// Close dropdown when clicking on a dropdown item
+document.addEventListener('DOMContentLoaded', function() {
+  const dropdownItems = document.querySelectorAll('.dropdown-item');
+  dropdownItems.forEach(item => {
+    item.addEventListener('click', function() {
+      const dropdown = document.getElementById('profileDropdown');
+      const button = document.querySelector('.profile-button');
+      
+      if (dropdown && button) {
+        // Small delay to allow navigation before closing
+        setTimeout(() => {
+          dropdown.classList.remove('show');
+          button.classList.remove('active');
+        }, 100);
+      }
+    });
+  });
+});
+</script>
 </body>
 </html>

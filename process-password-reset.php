@@ -56,4 +56,3 @@ if (!$ok || $updateStmt->affected_rows !== 1) {
 // Redirect to the desired page after success
 header("Location: TICKETIX NI CLAIRE.php");
 exit;
-
