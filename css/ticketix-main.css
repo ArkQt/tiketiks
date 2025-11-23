@@ -1,5 +1,8 @@
 /* Ticketix Main Styles */
 
+/* Import Montserrat font with all weights */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+
 /* User Profile Dropdown Styles */
 .user-profile {
   position: relative;
@@ -20,7 +23,8 @@
   transition: all 0.3s ease;
   padding: 0;
   font-size: 14px;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Buttons use Bold */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   user-select: none;
   outline: none;
@@ -43,7 +47,8 @@
 
 .profile-initials {
   font-size: 14px;
-  font-weight: 600;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* SemiBold */
   letter-spacing: 0.5px;
 }
 
@@ -83,14 +88,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Bold */
   font-size: 14px;
   flex-shrink: 0;
 }
 
 .dropdown-header-name {
   font-size: 15px;
-  font-weight: 600;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* SemiBold */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -115,6 +122,8 @@
   text-decoration: none;
   transition: background-color 0.2s ease;
   font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Regular body text */
 }
 
 .dropdown-item:hover {
@@ -147,6 +156,13 @@
 /* Smooth scrolling for the entire page */
 html {
   scroll-behavior: smooth;
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Base body text - Regular/Medium */
+body {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400;
 }
 
 /* Section-specific styling for proper separation */
@@ -174,6 +190,8 @@ html {
   margin-bottom: 40px;
   color: #00BFFF;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Section Headings use Bold */
 }
 
 #coming-soon h2 {
@@ -182,6 +200,8 @@ html {
   margin-bottom: 40px;
   color: #FF6B35;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Section Headings use Bold */
 }
 
 /* Contact section styling */
@@ -204,6 +224,8 @@ html {
   color: white;
   margin-bottom: 20px;
   font-size: 1.5em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* Subheadings use SemiBold */
 }
 
 .contact-info p {
@@ -211,6 +233,8 @@ html {
   margin-bottom: 15px;
   display: flex;
   align-items: center;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
 }
 
 .contact-form {
@@ -223,6 +247,8 @@ html {
   color: white;
   margin-bottom: 20px;
   font-size: 1.5em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* Subheadings use SemiBold */
 }
 
 .contact-form input,
@@ -248,12 +274,43 @@ html {
   padding: 12px 30px;
   border-radius: 5px;
   cursor: pointer;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Buttons use Bold */
   font-size: 16px;
 }
 
 .contact-form button:hover {
   background-color: #00BFFF;
+}
+
+.contact-alert {
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  font-size: 0.95em;
+  line-height: 1.4;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
+}
+
+.contact-success {
+  background: rgba(198, 239, 206, 0.9);
+  color: #1f7a36;
+  border: 1px solid rgba(198, 239, 206, 0.7);
+}
+
+.contact-error {
+  background: rgba(248, 215, 218, 0.9);
+  color: #842029;
+  border: 1px solid rgba(248, 215, 218, 0.7);
+}
+
+.contact-followup {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300; /* Captions use Light */
 }
 
 .social-links {
@@ -288,12 +345,16 @@ html {
   color: white;
   margin-bottom: 10px;
   font-size: 1.8em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* Subheadings use SemiBold */
 }
 
 .search-container p {
   color: rgba(255, 255, 255, 0.9);
   margin-bottom: 25px;
   font-size: 1.1em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
 }
 
 .search-form {
@@ -327,7 +388,8 @@ html {
   border-radius: 0 25px 25px 0;
   cursor: pointer;
   font-size: 16px;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Buttons use Bold */
   transition: all 0.3s ease;
   min-width: 120px;
 }
@@ -455,16 +517,31 @@ html {
   margin: 0 0 10px 0;
   font-size: 1.5em;
   color: #00BFFF;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* Card Titles use SemiBold */
 }
 
 .movie-info p {
   margin: 5px 0 20px 0;
   font-size: 1em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
 }
 
 /* Coming Soon movies - always visible info */
 #coming-soon .movie {
   position: relative;
+  transition: transform 0.3s ease;
+  transform: scale(1); /* Start at normal size */
+}
+
+/* Coming Soon hover effect - enlarge instead of darken */
+#coming-soon .movie:hover {
+  transform: scale(1.06); /* Slight enlargement on hover - subtle */
+}
+
+#coming-soon .movie:hover img {
+  filter: brightness(1); /* No darkening - keep original brightness */
 }
 
 #coming-soon .movie-info {
@@ -483,18 +560,22 @@ html {
   margin: 0 0 8px 0;
   font-size: 1.3em;
   color: #FF6B35;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* Card Titles use SemiBold */
 }
 
 #coming-soon .movie-info p {
   margin: 3px 0 8px 0;
   font-size: 0.9em;
   color: #ccc;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
 }
 
 #coming-soon .movie-info .release-date {
   color: #FFD700;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* SemiBold for emphasis */
   font-size: 0.95em;
   margin: 5px 0 10px 0;
 }
@@ -506,7 +587,8 @@ html {
   padding: 8px 16px;
   border-radius: 20px;
   cursor: pointer;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Buttons use Bold */
   font-size: 0.9em;
   transition: all 0.3s ease;
 }
@@ -529,7 +611,8 @@ html {
   padding: 10px 20px;
   border-radius: 5px;
   cursor: pointer;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Buttons use Bold */
   transition: all 0.3s ease;
   font-size: 0.9em;
 }
@@ -557,7 +640,8 @@ html {
 
 .release-date {
   color: #FFD700;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* SemiBold for emphasis */
   margin: 5px 0;
 }
 
@@ -672,7 +756,8 @@ section#home.hero *::after {
   width: 100%;
   height: 100%;
   transform: translateX(100%);
-  transition: transform 0.5s ease-in-out;
+  transition: transform 0.5s ease-in-out, opacity 0.3s ease-in-out;
+  opacity: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -741,6 +826,8 @@ section#home.hero *::after {
   font-size: 3.5em;
   margin-bottom: 30px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 800; /* Hero Title uses ExtraBold */
 }
 
 .hero-buttons {
@@ -757,7 +844,8 @@ section#home.hero *::after {
   padding: 15px 30px;
   border-radius: 8px;
   font-size: 1.1em;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Buttons use Bold */
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
@@ -879,11 +967,15 @@ section#home.hero *::after {
   color: #00BFFF;
   margin-bottom: 15px;
   font-size: 2em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Section Headings use Bold */
 }
 
 .movie-details p {
   margin-bottom: 10px;
   font-size: 1.1em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
 }
 
 .movie-description {
@@ -910,7 +1002,8 @@ section#home.hero *::after {
   color: #aaa;
   float: right;
   font-size: 28px;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Bold */
   cursor: pointer;
   position: absolute;
   top: 15px;
@@ -935,6 +1028,8 @@ section#home.hero *::after {
 .trailer-placeholder p {
   margin-bottom: 15px;
   font-size: 1.1em;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
 }
 
 #trailerContainer {
@@ -975,7 +1070,8 @@ section#home.hero *::after {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* SemiBold for labels */
   color: #00BFFF;
 }
 
@@ -1004,7 +1100,8 @@ section#home.hero *::after {
 
 .price-display p {
   font-size: 1.3em;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Bold for emphasis */
   margin: 0;
 }
 
@@ -1016,7 +1113,8 @@ section#home.hero *::after {
   padding: 15px;
   border-radius: 8px;
   font-size: 1.2em;
-  font-weight: bold;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Buttons use Bold */
   cursor: pointer;
   transition: transform 0.3s ease;
 }
@@ -1033,6 +1131,8 @@ section#home.hero *::after {
 .login-required p {
   font-size: 1.2em;
   margin-bottom: 20px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
 }
 
 .login-required .btn {
@@ -1052,6 +1152,44 @@ section#home.hero *::after {
 }
 
 /* Responsive Design */
+/* Large tablets and small desktops */
+@media (max-width: 1200px) {
+  .hero-content h1 {
+    font-size: 3em;
+  }
+  
+  #now-showing h2,
+  #coming-soon h2 {
+    font-size: 2.2em;
+  }
+  
+  .movie-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+}
+
+/* Tablets */
+@media (max-width: 992px) {
+  .hero-content h1 {
+    font-size: 2.8em;
+  }
+  
+  .contact-content {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  
+  .arrow.left {
+    left: 20px;
+  }
+  
+  .arrow.right {
+    right: 20px;
+  }
+}
+
+/* Small tablets and large phones */
 @media (max-width: 768px) {
   .contact-content {
     grid-template-columns: 1fr;
@@ -1059,6 +1197,7 @@ section#home.hero *::after {
   
   .hero-content h1 {
     font-size: 2.5em;
+    font-weight: 800; /* Maintain ExtraBold on mobile */
   }
   
   .movie-logo {
@@ -1112,6 +1251,7 @@ section#home.hero *::after {
   #coming-soon h2 {
     font-size: 2em;
     margin-bottom: 30px;
+    font-weight: 700; /* Maintain Bold on mobile */
   }
   
   /* Coming Soon movie info responsive */
@@ -1214,6 +1354,7 @@ section#home.hero *::after {
     margin-bottom: 25px;
     padding: 10px;
     border-radius: 8px;
+    font-weight: 700; /* Maintain Bold on small screens */
   }
   
   #now-showing h2 {
@@ -1283,6 +1424,7 @@ section#home.hero *::after {
     margin-bottom: 20px;
     padding: 8px;
     border-radius: 6px;
+    font-weight: 700; /* Maintain Bold on very small screens */
   }
   
   /* Coming Soon movie info for very small screens */
@@ -1317,5 +1459,54 @@ section#home.hero *::after {
     max-width: 150px;
     height: 225px;
     min-width: 120px;
+  }
+  
+  .hero-content h1 {
+    font-size: 2em;
+    font-weight: 800; /* Maintain ExtraBold on very small screens */
+  }
+  
+  .hero .btn {
+    font-size: 0.95em;
+    padding: 12px 24px;
+    font-weight: 700; /* Maintain Bold on very small screens */
+  }
+  
+  .arrow {
+    font-size: 1.2em;
+    padding: 10px;
+  }
+  
+  .arrow.left {
+    left: 10px;
+  }
+  
+  .arrow.right {
+    right: 10px;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 360px) {
+  .hero-content h1 {
+    font-size: 1.8em;
+    font-weight: 800; /* Maintain ExtraBold */
+  }
+  
+  #now-showing h2,
+  #coming-soon h2 {
+    font-size: 1.4em;
+    font-weight: 700; /* Maintain Bold */
+  }
+  
+  .movie-grid {
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 6px;
+  }
+  
+  .movie {
+    max-width: 130px;
+    height: 195px;
+    min-width: 100px;
   }
 }

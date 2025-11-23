@@ -1,14 +1,18 @@
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+      
       * {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
-          font-family: "Poppins", sans-serif;
+          font-family: 'Montserrat', sans-serif;
         }
 
         body {
           background-color: #0b0b0b;
           color: white;
           overflow-x: hidden;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 400; /* Body text Regular */
         }
 
         header {
@@ -45,7 +49,8 @@
         nav a {
           text-decoration: none;
           color: #ccc;
-          font-weight: 500;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 500; /* Medium for navigation */
           transition: color 0.3s;
         }
 
@@ -60,7 +65,8 @@
           border-radius: 25px;
           padding: 10px 25px;
           cursor: pointer;
-          font-weight: 600;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700; /* Buttons use Bold */
           transition: background 0.3s;
         }
 
@@ -99,7 +105,8 @@
 
         .hero h1 {
           font-size: 56px;
-          font-weight: 700;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 800; /* Hero Title uses ExtraBold */
           margin-bottom: 20px;
         }
 
@@ -121,7 +128,8 @@
           cursor: pointer;
           transition: 0.3s;
           font-size: 16px;
-          font-weight: 500;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700; /* Buttons use Bold */
         }   
 
         .btn:hover {
@@ -166,6 +174,8 @@
           margin-bottom: 20px;
           text-transform: uppercase;
           letter-spacing: 1px;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700; /* Section Headings use Bold */
         }
 
         .movie-grid {
@@ -214,6 +224,8 @@
         .newsletter p {
           margin-bottom: 25px;
           color: #ccc;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 400; /* Body text Regular */
         }
 
         .newsletter input[type="email"] {
@@ -235,6 +247,8 @@
           color: white;
           border-radius: 25px;
           cursor: pointer;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700; /* Buttons use Bold */
         }
 
         footer {
@@ -272,7 +286,8 @@
         .footer-center nav a {
           color: white;
           text-decoration: none;
-          font-weight: 500;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 500; /* Medium for navigation */
           transition: color 0.3s;
         }
 
@@ -284,6 +299,8 @@
           margin-top: 8px;
           font-size: 14px;
           color: #fff;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 300; /* Captions use Light */
         }
 
         /* Right Section */
@@ -293,7 +310,8 @@
         }
 
         .follow-title {
-          font-weight: 600;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 600; /* SemiBold for subheadings */
           font-size: 15px;
           margin-bottom: 8px;
         }
@@ -318,6 +336,27 @@
         }
 
         /* ✅ RESPONSIVE FIXES */
+        /* Large tablets and small desktops */
+        @media (max-width: 1200px) {
+          .hero h1 {
+            font-size: 48px;
+            font-weight: 800; /* Maintain ExtraBold */
+          }
+          
+          h2 {
+            font-size: 22px;
+            font-weight: 700; /* Maintain Bold */
+          }
+        }
+        
+        /* Tablets */
+        @media (max-width: 992px) {
+          .hero h1 {
+            font-size: 42px;
+            font-weight: 800; /* Maintain ExtraBold */
+          }
+        }
+        
         @media (max-width: 1200px) {
           .movie-grid {
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -331,6 +370,11 @@
         }
 
         @media (max-width: 900px) {
+          .hero h1 {
+            font-size: 38px;
+            font-weight: 800; /* Maintain ExtraBold */
+          }
+          
           .movie-grid {
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
@@ -345,6 +389,16 @@
         }
 
         @media (max-width: 768px) {
+          .hero h1 {
+            font-size: 32px;
+            font-weight: 800; /* Maintain ExtraBold */
+          }
+          
+          h2 {
+            font-size: 20px;
+            font-weight: 700; /* Maintain Bold */
+          }
+          
           .movie-grid {
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 12px;
@@ -356,9 +410,23 @@
             height: 330px;
             min-width: 160px;
           }
+          
+          .hero {
+            padding: 40px 30px;
+          }
         }
 
         @media (max-width: 600px) {
+          .hero h1 {
+            font-size: 28px;
+            font-weight: 800; /* Maintain ExtraBold */
+          }
+          
+          h2 {
+            font-size: 18px;
+            font-weight: 700; /* Maintain Bold */
+          }
+          
           .movie-grid {
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 10px;
@@ -370,9 +438,23 @@
             height: 270px;
             min-width: 140px;
           }
+          
+          .hero {
+            padding: 30px 20px;
+          }
         }
 
         @media (max-width: 480px) {
+          .hero h1 {
+            font-size: 24px;
+            font-weight: 800; /* Maintain ExtraBold */
+          }
+          
+          h2 {
+            font-size: 16px;
+            font-weight: 700; /* Maintain Bold */
+          }
+          
           .movie-grid {
             grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 8px;
@@ -383,6 +465,39 @@
             max-width: 150px;
             height: 225px;
             min-width: 120px;
+          }
+          
+          .hero {
+            padding: 25px 15px;
+          }
+          
+          .btn {
+            font-size: 14px;
+            padding: 8px 20px;
+            font-weight: 700; /* Maintain Bold */
+          }
+        }
+        
+        @media (max-width: 360px) {
+          .hero h1 {
+            font-size: 20px;
+            font-weight: 800; /* Maintain ExtraBold */
+          }
+          
+          h2 {
+            font-size: 14px;
+            font-weight: 700; /* Maintain Bold */
+          }
+          
+          .movie-grid {
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 6px;
+          }
+          
+          .movie {
+            max-width: 130px;
+            height: 195px;
+            min-width: 100px;
           }
         }
 
@@ -461,7 +576,8 @@
           border-radius: 0 25px 25px 0;
           cursor: pointer;
           font-size: 16px;
-          font-weight: bold;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700; /* Buttons use Bold */
           transition: all 0.3s ease;
           min-width: 120px;
         }
@@ -505,7 +621,8 @@
         .nav-search-label {
           color: #ccc;
           font-size: 14px;
-          font-weight: 500;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 500; /* Medium */
           white-space: nowrap;
         }
         
@@ -546,7 +663,8 @@
           border-radius: 0 25px 25px 0;
           cursor: pointer;
           font-size: 18px;
-          font-weight: 600;
+          font-family: 'Montserrat', sans-serif;
+          font-weight: 700; /* Buttons use Bold */
           transition: all 0.3s ease;
           min-width: 50px;
           height: 42px;

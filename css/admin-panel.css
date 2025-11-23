@@ -1,13 +1,16 @@
 /* Reset & base */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: "Poppins", sans-serif;
+    font-family: 'Montserrat', sans-serif;
 }
 
 body, html {
     height: 100%;
+    font-family: 'Montserrat', sans-serif;
 }
 
 /* Background Gradient */
@@ -16,6 +19,7 @@ body {
     color: #fff;
     display: flex;
     height: 100vh;
+    font-weight: 400; /* Body text Regular */
 }
 
 /* Sidebar */
@@ -127,50 +131,69 @@ header .highlight {
 }
 
 /* Stats cards section */
+/* Stats cards section */
 .stats-cards {
     display: flex;
     gap: 25px;
     margin-bottom: 50px;
     flex-wrap: wrap;
+    justify-content: center; /* Center the row of cards */
 }
 
 .stats-cards .card {
-    flex: 1 1 200px;
-    background: rgba(255 255 255 / 0.1);
-    border-radius: 8px;
-    padding: 25px 20px;
+    flex: 1 1 220px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 30px 20px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;      /* stack label + number + icon vertically */
+    justify-content: center;     /* vertically center */
+    align-items: center;         /* horizontally center */
+    text-align: center;          /* center text */
     color: #cbd5e1;
     cursor: default;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
 .stats-cards .card:hover {
-    background-color: rgba(60, 80, 178, 0.9);
+    background: rgba(60, 80, 178, 0.9);
     color: #fff;
+    transform: translateY(-4px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+}
+
+.card-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .card-info label {
     font-weight: 400;
     font-size: 13px;
-    display: block;
     margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 1.5px;
+    color: #dbeafe;
+    text-align: center;
 }
 
 .card-info h3 {
     font-weight: 700;
-    font-size: 22px;
+    font-size: 26px;
+    color: #ffffff;
+    margin: 0;
+    text-align: center;
 }
 
 /* Card icon styling */
 .card-icon {
-    font-size: 30px;
+    font-size: 34px;
     opacity: 0.6;
+    margin-top: 10px;
 }
+
 
 /* Active movies section */
 .active-movies h2 {

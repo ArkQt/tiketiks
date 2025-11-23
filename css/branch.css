@@ -1,7 +1,10 @@
 /* === GLOBAL STYLES === */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+
 body {
   margin: 0;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
   box-sizing: border-box;
   background: linear-gradient(135deg, #0b1a3a 0%, #102c56 100%);
   color: white;
@@ -15,7 +18,7 @@ header {
   align-items: center;
   justify-content: space-between;
   padding: 10px 40px;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Montserrat', sans-serif;
 }
 
 .left-section {
@@ -33,7 +36,8 @@ nav a {
   color: white;
   text-decoration: none;
   margin: 0 10px;
-  font-weight: 500;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500; /* Medium for navigation */
   font-size: 15px;
 }
 
@@ -86,7 +90,8 @@ nav a.active {
   padding: 8px 18px;
   border-radius: 20px;
   text-decoration: none;
-  font-weight: 600;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Buttons use Bold */
   transition: 0.3s ease;
 }
 
@@ -110,7 +115,8 @@ main {
 
 h1 {
   text-align: center;
-  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Section Headings use Bold */
   font-size: 26px;
   margin-bottom: 30px;
 }
@@ -142,7 +148,8 @@ h1 {
 .cinema-info h2 {
   margin: 0 0 6px 0;
   font-size: 18px;
-  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600; /* Card Titles use SemiBold */
 }
 
 .cinema-info p {
@@ -150,11 +157,14 @@ h1 {
   font-size: 13px;
   line-height: 1.3;
   color: #b0b9d7;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400; /* Body text Regular */
 }
 
 .cinema-info a {
   font-size: 13px;
-  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700; /* Bold for links */
   color: #ffeb3b;
   text-decoration: none;
 }
@@ -163,12 +173,67 @@ h1 {
   text-decoration: underline;
 }
 
+/* Responsive Design */
+@media (max-width: 768px) {
+  header {
+    padding: 10px 20px;
+  }
+  
+  nav a {
+    font-size: 13px;
+    margin: 0 8px;
+  }
+  
+  h1 {
+    font-size: 22px;
+    font-weight: 700; /* Maintain Bold */
+  }
+  
+  .cinema-item {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .cinema-item img {
+    margin-right: 0;
+    margin-bottom: 15px;
+  }
+  
+  .cinema-info h2 {
+    font-size: 16px;
+    font-weight: 600; /* Maintain SemiBold */
+  }
+}
+
+@media (max-width: 480px) {
+  header {
+    padding: 8px 15px;
+    flex-wrap: wrap;
+  }
+  
+  h1 {
+    font-size: 20px;
+    font-weight: 700; /* Maintain Bold */
+  }
+  
+  .cinema-info h2 {
+    font-size: 14px;
+    font-weight: 600; /* Maintain SemiBold */
+  }
+  
+  .cinema-info p {
+    font-size: 12px;
+  }
+}
+
 /*BACK BUTTON */
 .back-btn {
     background: transparent;
     border: 2px solid #00BFFF;
     color: #00BFFF;
-    font-weight: 500;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700; /* Buttons use Bold */
     border-radius: 30px;
     padding: 8px 18px;
     margin-bottom: 15px;
