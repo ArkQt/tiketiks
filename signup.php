@@ -7,18 +7,27 @@ $conn = getDBConnection();
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Validate required fields
-    if (empty($_POST['firstName']) || empty($_POST['lastName']) || empty($_POST['email']) || empty($_POST['password']) || empty($_POST['birthday']) || empty($_POST['contact']) || empty($_POST['address'])) {
-        die("Error: All fields are required!");
+    if (empty($_POST['firstName']) || empty($_POST['fullName']) || empty($_POST['email']) || empty($_POST['password']) || empty($_POST['contact']) || empty($_POST['address'])) {
+        die("Error: First name, display name, email, password, contact, and address are required!");
     }
 
     // Kunin ang data galing sa form
     $firstName = trim($_POST['firstName']);
-    $lastName = trim($_POST['lastName']);
+    $lastName = trim($_POST['lastName'] ?? '');
+    $displayName = trim($_POST['fullName'] ?? '');
     $email = trim($_POST['email']);
     $password = $_POST['password'];
-    $birthday = trim($_POST['birthday']);
+    $confirmPassword = $_POST['confirmPassword'] ?? '';
     $contact = trim($_POST['contact']);
     $address = trim($_POST['address']);
+    
+    // Validate display name
+    if (empty($displayName)) {
+        die("Error: Display name is required!");
+    }
+    if (mb_strlen($displayName) > 50) {
+        die("Error: Display name must be 50 characters or fewer.");
+    }
 
     // Validate firstName and lastName
     if (mb_strlen($firstName) > 50) {
@@ -30,13 +39,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (mb_strlen($lastName) > 50) {
         die("Error: Last name must be 50 characters or fewer.");
     }
-    if (mb_strlen($lastName) == 0) {
-        die("Error: Last name cannot be empty.");
-    }
 
     // Validate email format
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         die("Error: Invalid email format!");
+    }
+
+    // ✅ PASSWORD VALIDATION (Server-side)
+    if (strlen($password) < 8) {
+        die("Error: Password must be at least 8 characters long!");
+    }
+    if (!preg_match('/[A-Z]/', $password)) {
+        die("Error: Password must contain at least one uppercase letter!");
+    }
+    if (!preg_match('/[a-z]/', $password)) {
+        die("Error: Password must contain at least one lowercase letter!");
+    }
+    if (!preg_match('/[0-9]/', $password)) {
+        die("Error: Password must contain at least one number!");
+    }
+    if (!preg_match('/[!@#$%^&*(),.?":{}|<>]/', $password)) {
+        die("Error: Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)!");
+    }
+    
+    // Check if passwords match
+    if ($password !== $confirmPassword) {
+        die("Error: Passwords do not match!");
     }
 
     // Validate contact number format (11 digits)
@@ -44,7 +72,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         die("Error: Contact number must be exactly 11 digits!");
     }
 
-    // Length validations to match DB schema (USER_ACCOUNT columns)
+    // Length validations to match DB schema
     if (mb_strlen($email) > 50) {
         die("Error: Email must be 50 characters or fewer.");
     }
@@ -52,22 +80,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         die("Error: Address must be 50 characters or fewer.");
     }
 
-    // Validate birthdate
-    $birthday = trim($birthday);
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthday)) {
-        die("Error: Invalid date format! Please use YYYY-MM-DD format.");
-    }
-
-    $birthday_timestamp = strtotime($birthday);
-    $current_timestamp = time();
-    $min_age_timestamp = strtotime('-120 years');
-    $max_age_timestamp = strtotime('-13 years');
-
-    if ($birthday_timestamp === false || $birthday_timestamp < $min_age_timestamp || $birthday_timestamp > $max_age_timestamp) {
-        die("Error: Invalid birthdate! Please enter a valid date and ensure you are at least 13 years old.");
-    }
-
-	// Check if email already exists to avoid duplicate key error
+	// Check if email already exists
 	$check = $conn->prepare("SELECT acc_id FROM USER_ACCOUNT WHERE email = ? LIMIT 1");
 	if (!$check) {
 		die("Prepare failed: " . $conn->error);
@@ -84,12 +97,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 	// Hash password
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-    // Check if firstName and lastName columns exist in the database
+    // Check if firstName and lastName columns exist
     $checkCols = $conn->query("SHOW COLUMNS FROM USER_ACCOUNT LIKE 'firstName'");
     $hasFirstName = $checkCols && $checkCols->num_rows > 0;
     
     if (!$hasFirstName) {
-        // Columns don't exist - show clear error message
         die("
         <html>
         <head><title>Database Setup Required</title>
@@ -98,66 +110,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             .error-box { background: white; padding: 30px; border-radius: 10px; max-width: 800px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
             h1 { color: #d32f2f; margin-top: 0; }
             code { background: #f5f5f5; padding: 15px; display: block; border-left: 4px solid #d32f2f; margin: 20px 0; font-size: 14px; }
-            .steps { background: #e3f2fd; padding: 20px; border-radius: 5px; margin: 20px 0; }
-            .steps ol { margin: 10px 0; padding-left: 25px; }
-            .steps li { margin: 10px 0; }
         </style>
         </head>
         <body>
         <div class='error-box'>
             <h1>⚠️ Database Setup Required</h1>
-            <p><strong>The database doesn't have firstName and lastName columns yet.</strong></p>
-            <p>You need to add these columns to match your ticketix.sql schema.</p>
-            
-            <div class='steps'>
-                <h2>How to Fix:</h2>
-                <ol>
-                    <li>Open <strong>phpMyAdmin</strong> in your browser</li>
-                    <li>Select the <strong>TICKETIX</strong> database</li>
-                    <li>Click on the <strong>SQL</strong> tab</li>
-                    <li>Copy and paste the SQL code below</li>
-                    <li>Click <strong>Go</strong> to execute</li>
-                    <li>Come back and try signing up again</li>
-                </ol>
-            </div>
-            
-            <h3>SQL Code to Run:</h3>
-            <code>
-USE TICKETIX;<br><br>
-ALTER TABLE USER_ACCOUNT ADD COLUMN firstName VARCHAR(50) NOT NULL DEFAULT '' AFTER acc_id;<br>
-ALTER TABLE USER_ACCOUNT ADD COLUMN lastName VARCHAR(50) NOT NULL DEFAULT '' AFTER firstName;
-            </code>
-            
-            <p><strong>Or</strong> open the file <code>RUN_THIS_FIRST.sql</code> in your project folder and copy its contents.</p>
+            <p>Please run the database migration first.</p>
         </div>
         </body>
         </html>
         ");
     }
     
-    // Check if fullName column also exists (for backwards compatibility)
+    // Check if fullName column exists
     $checkFullName = $conn->query("SHOW COLUMNS FROM USER_ACCOUNT LIKE 'fullName'");
     $hasFullName = $checkFullName && $checkFullName->num_rows > 0;
     
-    // Columns exist - use firstName and lastName (and fullName if it exists)
     if ($hasFullName) {
-        // If fullName column exists, also populate it by combining firstName and lastName
-        $fullName = trim($firstName . ' ' . $lastName);
         $stmt = $conn->prepare("
-            INSERT INTO USER_ACCOUNT (firstName, lastName, fullName, email, user_password, birthdate, contNo, address, time_created, user_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'online')
-        ");
-        
-        if (!$stmt) {
-            die("Prepare failed: " . $conn->error);
-        }
-        
-        // Bind parameters: firstName, lastName, fullName, email, password, birthday, contact, address
-        $stmt->bind_param("ssssssss", $firstName, $lastName, $fullName, $email, $hashed_password, $birthday, $contact, $address);
-    } else {
-        // Only firstName and lastName exist (ideal scenario)
-        $stmt = $conn->prepare("
-            INSERT INTO USER_ACCOUNT (firstName, lastName, email, user_password, birthdate, contNo, address, time_created, user_status)
+            INSERT INTO USER_ACCOUNT (firstName, lastName, fullName, email, user_password, contNo, address, time_created, user_status)
             VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 'online')
         ");
         
@@ -165,14 +136,24 @@ ALTER TABLE USER_ACCOUNT ADD COLUMN lastName VARCHAR(50) NOT NULL DEFAULT '' AFT
             die("Prepare failed: " . $conn->error);
         }
         
-        // Bind parameters: firstName, lastName, email, password, birthday, contact, address
-        $stmt->bind_param("sssssss", $firstName, $lastName, $email, $hashed_password, $birthday, $contact, $address);
+        $stmt->bind_param("sssssss", $firstName, $lastName, $displayName, $email, $hashed_password, $contact, $address);
+    } else {
+        $stmt = $conn->prepare("
+            INSERT INTO USER_ACCOUNT (firstName, lastName, email, user_password, contNo, address, time_created, user_status)
+            VALUES (?, ?, ?, ?, ?, ?, NOW(), 'online')
+        ");
+        
+        if (!$stmt) {
+            die("Prepare failed: " . $conn->error);
+        }
+        
+        $stmt->bind_param("ssssss", $firstName, $lastName, $email, $hashed_password, $contact, $address);
     }
 
 	try {
 		$executed = $stmt->execute();
 	} catch (mysqli_sql_exception $e) {
-		if ((int)$e->getCode() === 1062) { // duplicate key
+		if ((int)$e->getCode() === 1062) {
 			$stmt->close();
 			die("Error: Email already registered. Please use a different email or log in.");
 		}
@@ -183,7 +164,7 @@ ALTER TABLE USER_ACCOUNT ADD COLUMN lastName VARCHAR(50) NOT NULL DEFAULT '' AFT
 		$user_id = $stmt->insert_id;
 		$stmt->close();
 
-		// Ensure email verification table exists
+		// Create email verification table
 		$conn->query("CREATE TABLE IF NOT EXISTS email_verifications (
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			acc_id INT NOT NULL,
@@ -223,21 +204,20 @@ ALTER TABLE USER_ACCOUNT ADD COLUMN lastName VARCHAR(50) NOT NULL DEFAULT '' AFT
 			} elseif (!empty($mail->Username)) {
 				$mail->setFrom($mail->Username, $fromName);
 			}
-			$fullname_display = $firstName . ' ' . $lastName;
-			$mail->addAddress($email, $fullname_display);
+			$displayNameForEmail = !empty($displayName) ? $displayName : ($firstName . ' ' . $lastName);
+			$mail->addAddress($email, $displayNameForEmail);
 			$mail->Subject = 'Verify your Ticketix email address';
-			$mail->Body = '<p>Hi ' . htmlspecialchars($fullname_display, ENT_QUOTES, 'UTF-8') . ',</p>' .
+			$mail->Body = '<p>Hi ' . htmlspecialchars($displayNameForEmail, ENT_QUOTES, 'UTF-8') . ',</p>' .
 				'<p>Thanks for signing up. Please verify your email by clicking the link below:</p>' .
 				'<p><a href="' . $link . '">Verify Email</a></p>' .
 				'<p>This link will expire in 24 hours.</p>';
-			$mail->AltBody = "Hi $fullname_display,\n\nPlease verify your email: $link\n\nThis link expires in 24 hours.";
+			$mail->AltBody = "Hi $displayNameForEmail,\n\nPlease verify your email: $link\n\nThis link expires in 24 hours.";
 			$mail->send();
 		} catch (Exception $e) {
 			echo "Registration successful, but we couldn't send the verification email: " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
 			exit();
 		}
 
-		// Do not auto-login; ask user to verify
 		echo "Registration successful! Please check your email to verify your account.";
 		exit();
     } else {

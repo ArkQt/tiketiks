@@ -49,6 +49,7 @@ $branches = [
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cinema Locations - Ticketix</title>
+  <link rel="icon" type="image/png" href="images/brand x.png" />
   <link rel="stylesheet" href="css/branch.css" />
 </head>
 <body>
@@ -65,17 +66,26 @@ $branches = [
     Back to Website
 </button>
 
-<h1>ALL CINEMA LOCATIONS</h1>
+<h1><?php 
+    if ($source === 'movie' && $movie_id) {
+        echo "Select Branch for: " . htmlspecialchars($movie_id);
+    } else {
+        echo "ALL CINEMA LOCATIONS";
+    }
+?></h1>
 <section class="cinema-list">
 
 <?php foreach ($branches as $branchName => $data): 
     // Decide link depending on source
     if ($source === 'home') {
-        // From homepage → go to movie selection first
+        // From homepage "Buy Tickets" button → go to movie selection first
         $link = "select-movie-branch.php?branch=" . urlencode($branchName);
-    } else {
-        // From movie page → go directly to seat selection
+    } else if ($source === 'movie' && $movie_id) {
+        // From movie card "Buy Tickets" → movie already selected, go directly to seat selection
         $link = "seat-reservation.php?branch=" . urlencode($branchName) . "&movie=" . urlencode($movie_id);
+    } else {
+        // Fallback: go to movie selection
+        $link = "select-movie-branch.php?branch=" . urlencode($branchName);
     }
 ?>
     <article class="cinema-item">
@@ -83,7 +93,7 @@ $branches = [
         <div class="cinema-info">
             <h2><?php echo $branchName; ?></h2>
             <p class="branch-location"><?php echo $data['location']; ?></p>
-            <a href="<?php echo $link; ?>">See What's Playing</a>
+            <a href="<?php echo $link; ?>"><?php echo ($source === 'movie' && $movie_id) ? 'Select This Branch' : 'See What\'s Playing'; ?></a>
         </div>
     </article>
 <?php endforeach; ?>

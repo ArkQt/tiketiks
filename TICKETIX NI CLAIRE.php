@@ -1,9 +1,50 @@
 <?php
 session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+$conn = getDBConnection();
+
+$contactSuccess = '';
+$contactError = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
+    $name = trim($_POST['name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $subject = trim($_POST['subject'] ?? '');
+    $messageBody = trim($_POST['message'] ?? '');
+
+    if ($name === '' || $email === '' || $subject === '' || $messageBody === '') {
+        $contactError = 'Please fill in all the required fields.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $contactError = 'Please provide a valid email address.';
+    } else {
+        try {
+            // Use the existing mailer.php configuration
+            $mail = require __DIR__ . '/mailer.php';
+            
+            // Set email properties
+            $mail->isHTML(false); // Plain text email
+            $mail->setFrom('ticketix0@gmail.com', 'Ticketix Website');
+            $mail->addAddress('ticketix0@gmail.com');
+            $mail->addReplyTo($email, $name);
+            
+            $mail->Subject = '[Ticketix Contact] ' . $subject;
+            $mail->Body = "You have received a new message from the Ticketix contact form.\n\n" .
+                "Name: $name\n" .
+                "Email: $email\n" .
+                "Subject: $subject\n\n" .
+                "Message:\n$messageBody\n";
+            
+            // Send the email
+            $mail->send();
+            $contactSuccess = 'Thanks for reaching out, ' . htmlspecialchars($name) . '! We will get back to you shortly.';
+        } catch (\PHPMailer\PHPMailer\Exception $e) {
+            $contactError = 'Sorry, we could not send your message at this time. Please try again later.';
+            // Uncomment the line below for debugging (remove in production)
+            // $contactError = 'Error: ' . $mail->ErrorInfo;
+        }
+    }
+}
 
 // Fetch movies from database
-$conn = getDBConnection();
 $today = date('Y-m-d');
 
 // Check if now_showing column exists
@@ -21,7 +62,7 @@ if ($has_now_showing) {
     // Explicitly select carousel_image if column exists
     $carousel_select = $has_carousel_image ? ", m.carousel_image" : "";
     $nowShowingQuery = $conn->query("
-        SELECT DISTINCT m.movie_show_id, m.title, m.genre, m.duration, m.rating, m.movie_descrp, m.image_poster{$carousel_select}, m.now_showing, m.coming_soon
+        SELECT DISTINCT m.movie_show_id, m.title, m.genre, m.duration, m.rating, m.movie_descrp, m.image_poster{$carousel_select}, m.delete_at, m.now_showing, m.coming_soon
         FROM MOVIE m
         LEFT JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
         WHERE (m.coming_soon = FALSE OR m.coming_soon IS NULL)
@@ -34,7 +75,7 @@ if ($has_now_showing) {
     // If column doesn't exist, use schedules only
     $carousel_select = $has_carousel_image ? ", m.carousel_image" : "";
     $nowShowingQuery = $conn->query("
-        SELECT DISTINCT m.movie_show_id, m.title, m.genre, m.duration, m.rating, m.movie_descrp, m.image_poster{$carousel_select}
+        SELECT DISTINCT m.movie_show_id, m.title, m.genre, m.duration, m.rating, m.movie_descrp, m.image_poster{$carousel_select}, m.delete_at
         FROM MOVIE m
         INNER JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
         WHERE ms.show_date >= '$today'
@@ -54,7 +95,7 @@ if ($nowShowingQuery) {
 // If no movies found and now_showing column exists, show all movies marked as now_showing (excluding coming_soon)
 if (empty($nowShowingMovies) && $has_now_showing) {
     $carousel_select_fallback = $has_carousel_image ? ", carousel_image" : "";
-    $fallbackQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback}, now_showing, coming_soon FROM MOVIE WHERE now_showing = TRUE AND (coming_soon = FALSE OR coming_soon IS NULL) ORDER BY title ASC LIMIT 10");
+    $fallbackQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback}, delete_at, now_showing, coming_soon FROM MOVIE WHERE now_showing = TRUE AND (coming_soon = FALSE OR coming_soon IS NULL) ORDER BY title ASC LIMIT 10");
     if ($fallbackQuery) {
         while ($row = $fallbackQuery->fetch_assoc()) {
             $nowShowingMovies[] = $row;
@@ -66,9 +107,9 @@ if (empty($nowShowingMovies) && $has_now_showing) {
 if (empty($nowShowingMovies)) {
     $carousel_select_fallback = $has_carousel_image ? ", carousel_image" : "";
     if ($has_now_showing) {
-        $allMoviesQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback}, now_showing, coming_soon FROM MOVIE WHERE (coming_soon = FALSE OR coming_soon IS NULL) ORDER BY title ASC LIMIT 10");
+      $allMoviesQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback}, delete_at, now_showing, coming_soon FROM MOVIE WHERE (coming_soon = FALSE OR coming_soon IS NULL) ORDER BY title ASC LIMIT 10");
     } else {
-        $allMoviesQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback} FROM MOVIE ORDER BY title ASC LIMIT 10");
+      $allMoviesQuery = $conn->query("SELECT movie_show_id, title, genre, duration, rating, movie_descrp, image_poster{$carousel_select_fallback}, delete_at FROM MOVIE ORDER BY title ASC LIMIT 10");
     }
     if ($allMoviesQuery) {
         while ($row = $allMoviesQuery->fetch_assoc()) {
@@ -306,16 +347,20 @@ $conn->close();
           $image = htmlspecialchars($movie['image_poster'] ?: 'images/default.png');
           // Get description from database and escape for HTML attribute
           $description = !empty($movie['movie_descrp']) ? htmlspecialchars($movie['movie_descrp'], ENT_QUOTES, 'UTF-8') : 'No description available.';
+          $deleteOn = !empty($movie['delete_at']) ? date('M d, Y', strtotime($movie['delete_at'])) : '';
         ?>
-          <div class="movie" onclick="openMovieModal(this)" data-title="<?= $title ?>" data-genre="<?= $genre ?>" data-duration="<?= $duration_formatted ?>" data-rating="<?= $rating ?>" data-poster="<?= $image ?>" data-description="<?= $description ?>">
+          <div class="movie" onclick="openMovieModal(this)" data-title="<?= $title ?>" data-genre="<?= $genre ?>" data-duration="<?= $duration_formatted ?>" data-rating="<?= $rating ?>" data-poster="<?= $image ?>" data-description="<?= $description ?>" data-delete="<?= htmlspecialchars($deleteOn) ?>">
             <img src="<?= $image ?>" alt="<?= $title ?>">
             <div class="movie-overlay">
               <div class="movie-info">
                 <h3><?= $title ?></h3>
                 <p><?= $genre ?> • <?= $duration_formatted ?> • <?= $rating ?></p>
+                <?php if (!empty($deleteOn)): ?>
+                  <p class="delete-on">Delete On: <?= $deleteOn ?></p>
+                <?php endif; ?>
                 <div class="movie-actions">
                   <button class="action-btn trailer-btn" onclick="event.stopPropagation(); openTrailer('<?= $title ?>')">▶ Trailer</button>
-                  <a href="seat-reservation.php?movie=<?= urlencode($title) ?>" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); return true;">🎟 Buy Tickets</a>
+                  <a href="branch-selection.php?source=movie&movie=<?= urlencode($title) ?>" class="action-btn ticket-btn" style="text-decoration: none; display: inline-block;" onclick="event.stopPropagation(); return true;">🎟 Buy Tickets</a>
                 </div>
               </div>
             </div>
@@ -387,42 +432,27 @@ $conn->close();
 
       <div class="contact-form">
         <h3>Send us a Message</h3>
-        <form action="TICKETIX NI CLAIRE.php" method="POST">
-          <input type="text" name="name" placeholder="Your Name" required>
-          <input type="email" name="email" placeholder="Your Email" required>
-          <input type="text" name="subject" placeholder="Subject" required>
-          <textarea name="message" placeholder="Your Message" required></textarea>
+        <?php if ($contactSuccess): ?>
+            <div class="contact-alert contact-success"><?= $contactSuccess ?></div>
+        <?php elseif ($contactError): ?>
+            <div class="contact-alert contact-error"><?= htmlspecialchars($contactError) ?></div>
+        <?php endif; ?>
+        <form action="#contact" method="POST">
+          <input type="hidden" name="contact_form" value="1">
+          <input type="text" name="name" placeholder="Your Name" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>" required>
+          <input type="email" name="email" placeholder="Your Email" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
+          <input type="text" name="subject" placeholder="Subject" value="<?= htmlspecialchars($_POST['subject'] ?? '') ?>" required>
+          <textarea name="message" placeholder="Your Message" required><?= htmlspecialchars($_POST['message'] ?? '') ?></textarea>
           <button type="submit">Send Message</button>
         </form>
-        
-        <?php
-        if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            $name = $_POST['name'] ?? '';
-            $email = $_POST['email'] ?? '';
-            $subject = $_POST['subject'] ?? '';
-            $message = $_POST['message'] ?? '';
-            
-            if (!empty($name) && !empty($email) && !empty($subject) && !empty($message)) {
-                echo '<div style="color: white; margin-top: 15px; padding: 10px; background-color: rgba(0,0,0,0.3); border-radius: 5px;">';
-                echo 'Thank you for your message, ' . htmlspecialchars($name) . '! We will get back to you soon.';
-                echo '</div>';
-            }
-        }
-        ?>
+        <?php if ($contactSuccess): ?>
+            <p class="contact-followup">We'll reply from <strong>ticketix0@gmail.com</strong> as soon as we can.</p>
+        <?php endif; ?>
       </div>
     </div>
     
     <!-- Search Bar Section -->
-    <div class="search-section">
-      <div class="search-container">
-        <h3>Search Movies</h3>
-        <p>Find your favorite movies and discover new ones</p>
-        <form class="search-form" method="GET" action="search.php">
-          <input type="text" name="q" class="search-input" placeholder="Search for movies, genres, or descriptions..." required>
-          <button type="submit" class="search-btn">🔍 Search</button>
-        </form>
-      </div>
-    </div>
+    
   </section>
 
   <!-- Trailer Modal -->
@@ -456,7 +486,7 @@ $conn->close();
         <h2 id="modalMovieTitle">Movie Title</h2>
         <p id="modalMovieGenre">Genre</p>
         <p id="modalMovieDuration">Duration</p>
-        <p id="modalMovieRating">Rating</p>
+        <p id="modalMovieRating">Rated:</p>
         <div class="movie-description">
           <p id="modalMovieDescription">Experience the ultimate cinematic adventure with stunning visuals and an unforgettable story.</p>
         </div>
@@ -559,23 +589,136 @@ $conn->close();
 let currentSlideIndex = 0;
 const slides = document.querySelectorAll('.hero-slide');
 const indicators = document.querySelectorAll('.indicator');
+let isTransitioning = false; // Lock to prevent rapid transitions
 
 function showSlide(index) {
-    // Remove all classes from slides
-    slides.forEach(slide => {
-        slide.classList.remove('active', 'prev');
+    // Prevent rapid transitions
+    if (isTransitioning || slides[index].classList.contains('active')) {
+        return; // Already showing this slide or transition in progress
+    }
+    
+    isTransitioning = true;
+    
+    // Find current active slide
+    let currentActiveIndex = -1;
+    slides.forEach((slide, i) => {
+        if (slide.classList.contains('active')) {
+            currentActiveIndex = i;
+        }
     });
     
-    // Remove active class from all indicators
-    indicators.forEach(indicator => indicator.classList.remove('active'));
+    // Determine if we're wrapping around (last to first or first to last)
+    const isWrappingForward = currentActiveIndex === slides.length - 1 && index === 0;
+    const isWrappingBackward = currentActiveIndex === 0 && index === slides.length - 1;
     
-    // Add active class to current slide and indicator
-    slides[index].classList.add('active');
-    indicators[index].classList.add('active');
-    
-    // Add prev class to previous slide for sliding effect
-    const prevIndex = index === 0 ? slides.length - 1 : index - 1;
-    slides[prevIndex].classList.add('prev');
+    if (isWrappingForward || isWrappingBackward) {
+        // For wrap-around transitions, handle smoothly
+        // Remove active from all indicators first
+        indicators.forEach(indicator => indicator.classList.remove('active'));
+        
+        if (isWrappingForward) {
+            // Going from last to first: seamless forward loop
+            // 1. First, remove active from last slide so it moves off-screen right
+            if (currentActiveIndex >= 0) {
+                slides[currentActiveIndex].classList.remove('active');
+                slides[currentActiveIndex].classList.remove('prev'); // Ensure no prev class
+                // Last slide will go to default translateX(100%) - off-screen right
+            }
+            
+            // 2. Position first slide off-screen to the right, but further out to avoid overlap
+            slides[index].classList.remove('prev', 'active');
+            slides[index].style.transform = 'translateX(100%)';
+            slides[index].style.opacity = '0'; // Start invisible
+            
+            // Force reflow to ensure last slide transition has started
+            if (currentActiveIndex >= 0) {
+                void slides[currentActiveIndex].offsetHeight;
+            }
+            void slides[index].offsetHeight;
+            
+            // 3. Wait a moment for last slide to move, then bring first slide in
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    // Make first slide visible and animate it in
+                    slides[index].style.opacity = '1';
+                    slides[index].classList.add('active');
+                    slides[index].style.transform = '';
+                    indicators[index].classList.add('active');
+                    
+                    setTimeout(() => {
+                        isTransitioning = false;
+                        // Clean up inline styles
+                        slides.forEach(slide => {
+                            if (!slide.classList.contains('active')) {
+                                slide.classList.remove('prev');
+                                slide.style.transform = '';
+                            }
+                            slide.style.opacity = '';
+                        });
+                    }, 550);
+                });
+            }, 50); // Small delay to let last slide start moving
+        } else {
+            // Going from first to last: seamless backward loop
+            // 1. Position last slide off-screen to the left
+            slides[index].classList.remove('active');
+            slides[index].classList.add('prev'); // This positions it at translateX(-100%)
+            
+            // 2. Remove active from first slide and position it to slide out left
+            if (currentActiveIndex >= 0) {
+                slides[currentActiveIndex].classList.remove('active');
+                slides[currentActiveIndex].classList.add('prev');
+            }
+            
+            // Force reflow
+            void slides[index].offsetHeight;
+            if (currentActiveIndex >= 0) {
+                void slides[currentActiveIndex].offsetHeight;
+            }
+            
+            // 3. Animate last slide in from left
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    slides[index].classList.remove('prev');
+                    slides[index].classList.add('active');
+                    indicators[index].classList.add('active');
+                    
+                    setTimeout(() => {
+                        isTransitioning = false;
+                        // Clean up
+                        slides.forEach(slide => {
+                            if (!slide.classList.contains('active')) {
+                                slide.classList.remove('prev');
+                                slide.style.transform = '';
+                            }
+                        });
+                    }, 550);
+                });
+            });
+        }
+    } else {
+        // Normal transition (not wrapping)
+        // Remove all classes from slides
+        slides.forEach(slide => {
+            slide.classList.remove('active', 'prev');
+        });
+        
+        // Remove active class from all indicators
+        indicators.forEach(indicator => indicator.classList.remove('active'));
+        
+        // Add active class to current slide and indicator
+        slides[index].classList.add('active');
+        indicators[index].classList.add('active');
+        
+        // Add prev class to previous slide for sliding effect
+        const prevIndex = index === 0 ? slides.length - 1 : index - 1;
+        slides[prevIndex].classList.add('prev');
+        
+        // Reset transition lock after animation
+        setTimeout(() => {
+            isTransitioning = false;
+        }, 500); // Match the CSS transition duration
+    }
 }
 
 function changeSlide(direction) {
@@ -685,21 +828,20 @@ function openTrailer(movieName) {
     document.getElementById('trailerTitle').textContent = movieName + ' - Trailer';
     
     // Check if we have a trailer for this movie
-    const trailerId = movieTrailers[movieName];
+    let trailerId = movieTrailers[movieName];
     
-    if (trailerId) {
-        // Show YouTube player
-        document.getElementById('trailerPlaceholder').style.display = 'none';
-        document.getElementById('youtubePlayer').style.display = 'block';
-        
-        // Load the trailer video
-        const videoUrl = `https://www.youtube.com/embed/${trailerId}?autoplay=1&rel=0&modestbranding=1`;
-        document.getElementById('trailerVideo').src = videoUrl;
-    } else {
-        // Show placeholder
-        document.getElementById('trailerPlaceholder').style.display = 'block';
-        document.getElementById('youtubePlayer').style.display = 'none';
+    // If no trailer found, use default trailer ID
+    if (!trailerId) {
+        trailerId = 'DdR-gzFZoDk';
     }
+    
+    // Always show YouTube player
+    document.getElementById('trailerPlaceholder').style.display = 'none';
+    document.getElementById('youtubePlayer').style.display = 'block';
+    
+    // Load the trailer video
+    const videoUrl = `https://www.youtube.com/embed/${trailerId}?autoplay=1&rel=0&modestbranding=1`;
+    document.getElementById('trailerVideo').src = videoUrl;
     
     document.getElementById('trailerModal').style.display = 'block';
     stopAutoPlay(); // Pause carousel when modal opens
@@ -818,7 +960,7 @@ function openMovieModal(element) {
     document.getElementById('modalMovieTitle').textContent = title;
     document.getElementById('modalMovieGenre').textContent = 'Genre: ' + genre;
     document.getElementById('modalMovieDuration').textContent = 'Duration: ' + duration;
-    document.getElementById('modalMovieRating').textContent = 'Rating: ' + rating;
+    document.getElementById('modalMovieRating').textContent = 'Rated: ' + rating;
     document.getElementById('modalMoviePoster').src = posterSrc;
     document.getElementById('modalMoviePoster').alt = title + ' Poster';
     document.getElementById('modalMovieDescription').textContent = description;

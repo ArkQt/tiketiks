@@ -29,4 +29,3 @@ function ticketix_load_env($path)
 		}
 	}
 }
-

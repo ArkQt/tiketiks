@@ -17,13 +17,84 @@ if (isset($_GET['delete']) && isset($_GET['id'])) {
     $type = $_GET['delete']; // 'movie' or 'schedule'
     
     if ($type === 'movie') {
-        // First, delete all schedules for this movie
+        // Get all schedule_ids for this movie
+        $getSchedules = $conn->prepare("SELECT schedule_id FROM MOVIE_SCHEDULE WHERE movie_show_id = ?");
+        $getSchedules->bind_param("i", $id);
+        $getSchedules->execute();
+        $result = $getSchedules->get_result();
+        $scheduleIds = [];
+        while ($row = $result->fetch_assoc()) {
+            $scheduleIds[] = $row['schedule_id'];
+        }
+        $getSchedules->close();
+        
+        // For each schedule, delete related reservations and their dependencies
+        foreach ($scheduleIds as $scheduleId) {
+            // Get all reservation_ids for this schedule
+            $getReservations = $conn->prepare("SELECT reservation_id FROM RESERVE WHERE schedule_id = ?");
+            $getReservations->bind_param("i", $scheduleId);
+            $getReservations->execute();
+            $resResult = $getReservations->get_result();
+            $reservationIds = [];
+            while ($row = $resResult->fetch_assoc()) {
+                $reservationIds[] = $row['reservation_id'];
+            }
+            $getReservations->close();
+            
+            // Delete related records for each reservation
+            foreach ($reservationIds as $reservationId) {
+                // First get all ticket_ids for this reservation
+                $getTickets = $conn->prepare("SELECT ticket_id FROM TICKET WHERE reserve_id = ?");
+                $getTickets->bind_param("i", $reservationId);
+                $getTickets->execute();
+                $ticketResult = $getTickets->get_result();
+                $ticketIds = [];
+                while ($row = $ticketResult->fetch_assoc()) {
+                    $ticketIds[] = $row['ticket_id'];
+                }
+                $getTickets->close();
+                
+                // Delete TICKET_FOOD records for each ticket
+                foreach ($ticketIds as $ticketId) {
+                    $deleteTicketFood = $conn->prepare("DELETE FROM TICKET_FOOD WHERE ticket_id = ?");
+                    $deleteTicketFood->bind_param("i", $ticketId);
+                    $deleteTicketFood->execute();
+                    $deleteTicketFood->close();
+                }
+                
+                // Delete TICKET records
+                $deleteTickets = $conn->prepare("DELETE FROM TICKET WHERE reserve_id = ?");
+                $deleteTickets->bind_param("i", $reservationId);
+                $deleteTickets->execute();
+                $deleteTickets->close();
+                
+                // Delete PAYMENT records
+                $deletePayments = $conn->prepare("DELETE FROM PAYMENT WHERE reserve_id = ?");
+                $deletePayments->bind_param("i", $reservationId);
+                $deletePayments->execute();
+                $deletePayments->close();
+                
+                // Delete RESERVE_SEAT records
+                $deleteReserveSeats = $conn->prepare("DELETE FROM RESERVE_SEAT WHERE reservation_id = ?");
+                $deleteReserveSeats->bind_param("i", $reservationId);
+                $deleteReserveSeats->execute();
+                $deleteReserveSeats->close();
+            }
+            
+            // Delete RESERVE records for this schedule
+            $deleteReserves = $conn->prepare("DELETE FROM RESERVE WHERE schedule_id = ?");
+            $deleteReserves->bind_param("i", $scheduleId);
+            $deleteReserves->execute();
+            $deleteReserves->close();
+        }
+        
+        // Now delete all schedules for this movie
         $deleteSchedules = $conn->prepare("DELETE FROM MOVIE_SCHEDULE WHERE movie_show_id = ?");
         $deleteSchedules->bind_param("i", $id);
         $deleteSchedules->execute();
         $deleteSchedules->close();
         
-        // Then delete the movie
+        // Finally delete the movie
         $stmt = $conn->prepare("DELETE FROM MOVIE WHERE movie_show_id = ?");
         $stmt->bind_param("i", $id);
         if ($stmt->execute()) {
@@ -33,7 +104,64 @@ if (isset($_GET['delete']) && isset($_GET['id'])) {
         }
         $stmt->close();
     } elseif ($type === 'schedule') {
-        // Delete schedule
+        // Get all reservation_ids for this schedule
+        $getReservations = $conn->prepare("SELECT reservation_id FROM RESERVE WHERE schedule_id = ?");
+        $getReservations->bind_param("i", $id);
+        $getReservations->execute();
+        $resResult = $getReservations->get_result();
+        $reservationIds = [];
+        while ($row = $resResult->fetch_assoc()) {
+            $reservationIds[] = $row['reservation_id'];
+        }
+        $getReservations->close();
+        
+        // Delete related records for each reservation
+        foreach ($reservationIds as $reservationId) {
+            // First get all ticket_ids for this reservation
+            $getTickets = $conn->prepare("SELECT ticket_id FROM TICKET WHERE reserve_id = ?");
+            $getTickets->bind_param("i", $reservationId);
+            $getTickets->execute();
+            $ticketResult = $getTickets->get_result();
+            $ticketIds = [];
+            while ($row = $ticketResult->fetch_assoc()) {
+                $ticketIds[] = $row['ticket_id'];
+            }
+            $getTickets->close();
+            
+            // Delete TICKET_FOOD records for each ticket
+            foreach ($ticketIds as $ticketId) {
+                $deleteTicketFood = $conn->prepare("DELETE FROM TICKET_FOOD WHERE ticket_id = ?");
+                $deleteTicketFood->bind_param("i", $ticketId);
+                $deleteTicketFood->execute();
+                $deleteTicketFood->close();
+            }
+            
+            // Delete TICKET records
+            $deleteTickets = $conn->prepare("DELETE FROM TICKET WHERE reserve_id = ?");
+            $deleteTickets->bind_param("i", $reservationId);
+            $deleteTickets->execute();
+            $deleteTickets->close();
+            
+            // Delete PAYMENT records
+            $deletePayments = $conn->prepare("DELETE FROM PAYMENT WHERE reserve_id = ?");
+            $deletePayments->bind_param("i", $reservationId);
+            $deletePayments->execute();
+            $deletePayments->close();
+            
+            // Delete RESERVE_SEAT records
+            $deleteReserveSeats = $conn->prepare("DELETE FROM RESERVE_SEAT WHERE reservation_id = ?");
+            $deleteReserveSeats->bind_param("i", $reservationId);
+            $deleteReserveSeats->execute();
+            $deleteReserveSeats->close();
+        }
+        
+        // Delete RESERVE records for this schedule
+        $deleteReserves = $conn->prepare("DELETE FROM RESERVE WHERE schedule_id = ?");
+        $deleteReserves->bind_param("i", $id);
+        $deleteReserves->execute();
+        $deleteReserves->close();
+        
+        // Finally delete the schedule
         $stmt = $conn->prepare("DELETE FROM MOVIE_SCHEDULE WHERE schedule_id = ?");
         $stmt->bind_param("i", $id);
         if ($stmt->execute()) {
@@ -55,6 +183,7 @@ $movies_query = $conn->query("
         m.rating,
         m.movie_descrp,
         m.image_poster,
+        m.delete_at,
         ms.schedule_id,
         ms.show_date,
         ms.show_hour
@@ -76,6 +205,7 @@ if ($movies_query) {
                 'rating' => $row['rating'],
                 'movie_descrp' => $row['movie_descrp'],
                 'image_poster' => $row['image_poster'],
+                'delete_at' => $row['delete_at'],
                 'schedules' => []
             ];
         }
@@ -395,7 +525,10 @@ if ($movies_query) {
                                 <div class="movie-details">
                                     <span><strong>Genre:</strong> <?= htmlspecialchars($movie['genre']) ?></span>
                                     <span><strong>Duration:</strong> <?= htmlspecialchars($movie['duration']) ?> min</span>
-                                    <span><strong>Rating:</strong> <?= htmlspecialchars($movie['rating']) ?></span>
+                                    <span><strong>Rated:</strong> <?= htmlspecialchars($movie['rating']) ?></span>
+                                    <?php if (!empty($movie['delete_at'])): ?>
+                                        <span><strong>Delete On:</strong> <?= date('M d, Y', strtotime($movie['delete_at'])) ?></span>
+                                    <?php endif; ?>
                                 </div>
                                 <?php if ($movie['movie_descrp']): ?>
                                     <p class="movie-description"><?= htmlspecialchars($movie['movie_descrp']) ?></p>

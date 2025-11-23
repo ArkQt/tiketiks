@@ -10,13 +10,17 @@ $conn = getDBConnection();
 
 // --- Fetch Stats ---
 $totalUsersQuery = $conn->query("SELECT COUNT(*) AS total FROM USER_ACCOUNT WHERE role = 'user'");
-$totalUsers = $totalUsersQuery ? $totalUsersQuery->fetch_assoc()['total'] ?? 0 : 0;
+$totalUsers = $totalUsersQuery ? intval($totalUsersQuery->fetch_assoc()['total'] ?? 0) : 0;
 
+// Count all reservations (bookings)
 $totalBookingsQuery = $conn->query("SELECT COUNT(*) AS total FROM RESERVE");
-$totalBookings = $totalBookingsQuery ? $totalBookingsQuery->fetch_assoc()['total'] ?? 0 : 0;
+$totalBookings = $totalBookingsQuery ? intval($totalBookingsQuery->fetch_assoc()['total'] ?? 0) : 0;
 
+// Calculate total revenue from all paid payments
+// amount_paid should equal seat_total + food_total for each booking
 $totalRevenueQuery = $conn->query("SELECT IFNULL(SUM(amount_paid), 0) AS total FROM PAYMENT WHERE payment_status = 'paid'");
-$totalRevenue = $totalRevenueQuery ? $totalRevenueQuery->fetch_assoc()['total'] ?? 0 : 0;
+$revenueResult = $totalRevenueQuery ? $totalRevenueQuery->fetch_assoc() : null;
+$totalRevenue = $revenueResult ? floatval($revenueResult['total'] ?? 0) : 0.00;
 
 // --- Fetch Movies ---
 $today = date('Y-m-d');
@@ -158,10 +162,10 @@ if (empty($comingSoon) && $has_now_showing) {
         </header>
 
         <section class="stats-cards">
-            <div class="card"><div class="card-info"><label>Total Bookings</label><h3><?= $totalBookings ?></h3></div><div class="card-icon">📈</div></div>
-            <div class="card"><div class="card-info"><label>Total Revenue</label><h3>₱<?= number_format($totalRevenue, 2) ?></h3></div><div class="card-icon">💰</div></div>
-            <div class="card"><div class="card-info"><label>Active Movies</label><h3><?= $activeMovies ?></h3></div><div class="card-icon">🎬</div></div>
-            <div class="card"><div class="card-info"><label>Total Users</label><h3><?= $totalUsers ?></h3></div><div class="card-icon">👥</div></div>
+            <div class="card"><div class="card-info"><label>Total Bookings</label><h3><?= $totalBookings ?></h3></div><div class="card-icon"></div></div>
+            <div class="card"><div class="card-info"><label>Total Revenue</label><h3>₱<?= number_format($totalRevenue, 2) ?></h3></div><div class="card-icon"></div></div>
+            <div class="card"><div class="card-info"><label>Active Movies</label><h3><?= $activeMovies ?></h3></div><div class="card-icon"></div></div>
+            <div class="card"><div class="card-info"><label>Total Users</label><h3><?= $totalUsers ?></h3></div><div class="card-icon"></div></div>
         </section>
 
         <!-- Now Showing -->

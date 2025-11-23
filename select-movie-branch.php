@@ -25,18 +25,41 @@ if ($userSelectedBranch) {
     $branchId = $branchRow['branch_id'] ?? null;
 
     if ($branchId) {
-        $stmt = $conn->prepare("
-            SELECT DISTINCT m.title
-            FROM MOVIE m
-            JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
-            WHERE m.now_showing = 1 AND ms.branch_id = ?
-            ORDER BY m.title ASC
-        ");
-        $stmt->bind_param('i', $branchId);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $moviesByBranch[] = $row['title'];
+        // Check if branch_id column exists in MOVIE_SCHEDULE
+        $column_check = $conn->query("SHOW COLUMNS FROM MOVIE_SCHEDULE LIKE 'branch_id'");
+        $has_branch_id = $column_check && $column_check->num_rows > 0;
+        
+        if ($has_branch_id) {
+            // Use branch_id to filter movies by branch
+            $stmt = $conn->prepare("
+                SELECT DISTINCT m.title
+                FROM MOVIE m
+                JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
+                WHERE m.now_showing = 1 AND ms.branch_id = ?
+                ORDER BY m.title ASC
+            ");
+            $stmt->bind_param('i', $branchId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $moviesByBranch[] = $row['title'];
+            }
+            $stmt->close();
+        } else {
+            // branch_id column doesn't exist - show all now_showing movies
+            $stmt = $conn->prepare("
+                SELECT DISTINCT m.title
+                FROM MOVIE m
+                JOIN MOVIE_SCHEDULE ms ON m.movie_show_id = ms.movie_show_id
+                WHERE m.now_showing = 1
+                ORDER BY m.title ASC
+            ");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $moviesByBranch[] = $row['title'];
+            }
+            $stmt->close();
         }
     }
 }

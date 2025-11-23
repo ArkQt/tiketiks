@@ -217,13 +217,18 @@ food_price DECIMAL(10,2) DEFAULT 0.00
 
 ALTER TABLE FOOD ADD COLUMN image_path VARCHAR(255);
 INSERT INTO FOOD(food_name, food_price, image_path) VALUES
-('All-In Combo', 199.00, 'images/all-in.png'),
+('All-In-Combo', 199.00, 'images/all-in.png'),
 ('Hotdog & Coke', 165.00, 'images/hotdog-coke.png'),
-('Fries & Coke', 120.00, 'images/fries-coke.png'),
+('Froke', 120.00, 'images/fries-coke.png'),
 ('Fries', 50.00, 'images/fries-solo.png'),
 ('Hotdog', 60.00, 'images/hotdog-solo.png'),
 ('Coke', 40.00, 'images/coke-solo.png'),
 ('Popcorn', 40.00, 'images/popcorn-solo.png');
+
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE FOOD;
+SET FOREIGN_KEY_CHECKS = 1;
+TRUNCATE TABLE FOOD;
 
 CREATE TABLE TICKET_FOOD (
 ticket_food_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -233,6 +238,9 @@ quantity INT DEFAULT 1,
 FOREIGN KEY (ticket_id) REFERENCES TICKET(ticket_id),
 FOREIGN KEY (food_id) REFERENCES FOOD(food_id)
 ) ENGINE=InnoDB;
+
+ALTER TABLE TICKET_FOOD
+ADD COLUMN quantity INT NOT NULL DEFAULT 1;
 
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE MOVIE_SCHEDULE;

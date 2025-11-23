@@ -166,11 +166,10 @@
       <h2>Create Account</h2>
       <form action="signup.php" method="POST">
         <input type="text" name="firstName" placeholder="First Name" required>
-        <input type="text" name="lastName" placeholder="Last Name" required>
-        <input type="text" name="fullName" placeholder="Full Name" required>
+        <input type="text" name="lastName" placeholder="Last Name (Optional)">
+        <input type="text" name="fullName" placeholder="Display Name / Nickname" required>
         <input type="email" name="email" placeholder="Email" required>
         <input type="password" name="password" placeholder="Password" required>
-        <input type="date" name="birthday" placeholder="Birthday" required>
         <input type="tel" name="contact" placeholder="Contact Number" pattern="[0-9]{11}" maxlength="11" required>
         <input type="text" name="address" placeholder="Address" maxlength="100" required>
         <button type="submit" class="signup-btn">Sign Up</button>

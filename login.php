@@ -2,10 +2,7 @@
 session_start();
 require_once 'config.php';
 
-
-
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Only access $_POST when the form is submitted
     $input = isset($_POST['email']) ? trim($_POST['email']) : '';
     $password = $_POST['password'] ?? '';
 
@@ -14,7 +11,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (!filter_var($input, FILTER_VALIDATE_EMAIL)) {
         $error_message = "Please enter a valid email address.";
     } else {
-        // Use prepared statement to query by email
         $stmt = $conn->prepare("SELECT * FROM USER_ACCOUNT WHERE email = ? LIMIT 1");
         if ($stmt) {
             $stmt->bind_param("s", $input);
@@ -24,9 +20,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($result && $result->num_rows > 0) {
                 $row = $result->fetch_assoc();
 
-                // Compare passwords using password_verify for hashed passwords
                 if (password_verify($password, $row['user_password'])) {
-                    // Ensure email verified
+                    // Check email verification
                     $verifyStmt = $conn->prepare("SELECT 1 FROM email_verifications WHERE acc_id = ? AND used_at IS NOT NULL ORDER BY used_at DESC LIMIT 1");
                     if ($verifyStmt) {
                         $verifyStmt->bind_param("i", $row['acc_id']);
@@ -41,31 +36,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     if (!$isVerified) {
                         $error_message = "Please verify your email before logging in. Check your inbox.";
                     } else {
-                    // Set session variables
-                    // Check if firstName/lastName exist, otherwise use fullName
-                    if (isset($row['firstName']) && isset($row['lastName'])) {
-                        $_SESSION['user_name'] = $row['firstName'] . ' ' . $row['lastName'];
-                    } elseif (isset($row['fullName'])) {
-                        $_SESSION['user_name'] = $row['fullName'];
-                    } else {
-                        $_SESSION['user_name'] = $row['email']; // Fallback to email if no name available
-                    }
-                    $_SESSION['user_id'] = $row['acc_id'];
-                    $_SESSION['role'] = $row['role'] ?? 'user'; // ✅ store the user's role
-                    $_SESSION['logged_in'] = true;
+                        $_SESSION = array();
+                        session_regenerate_id(true);
+                        
+                        if (isset($row['fullName']) && !empty($row['fullName'])) {
+                            $_SESSION['user_name'] = $row['fullName'];
+                        } elseif (isset($row['firstName']) && isset($row['lastName'])) {
+                            $_SESSION['user_name'] = $row['firstName'] . ' ' . $row['lastName'];
+                        } else {
+                            $_SESSION['user_name'] = $row['email'];
+                        }
+                        $_SESSION['user_id'] = $row['acc_id'];
+                        $_SESSION['acc_id'] = $row['acc_id'];
+                        $_SESSION['role'] = $row['role'] ?? 'user';
+                        $_SESSION['logged_in'] = true;
 
-                    // Update user status to online
-                    $update_query = "UPDATE USER_ACCOUNT SET user_status = 'online' WHERE acc_id = " . (int)$row['acc_id'];
-                    $conn->query($update_query);
+                        $update_query = "UPDATE USER_ACCOUNT SET user_status = 'online' WHERE acc_id = " . (int)$row['acc_id'];
+                        $conn->query($update_query);
 
-                    // ✅ Redirect based on role
-                    if ($row['role'] === 'admin') {
-                        header("Location: admin-panel.php"); // your admin panel file
-                    } else {
-                        header("Location: TICKETIX NI CLAIRE.php"); // normal homepage
-                    }
-                    exit();
-
+                        if ($row['role'] === 'admin') {
+                            header("Location: admin-panel.php");
+                        } else {
+                            header("Location: TICKETIX NI CLAIRE.php");
+                        }
+                        exit();
                     }
                 } else {
                     $error_message = "Invalid password.";
@@ -90,7 +84,122 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ticketix Login / Sign Up</title>
+  <link rel="icon" type="image/png" href="images/brand x.png" />
   <link rel="stylesheet" href="css/login.css">
+  <style>
+    /* Password strength indicator styles */
+    .password-wrapper {
+      position: relative;
+      width: 100%;
+    }
+    
+    .password-input-container {
+      position: relative;
+      width: 100%;
+    }
+    
+    .password-input-container input {
+      width: 100%;
+      padding-right: 40px; /* Make room for the eye icon */
+    }
+    
+    .toggle-password {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #666;
+      font-size: 18px;
+      user-select: none;
+      z-index: 10;
+    }
+    
+    .toggle-password:hover {
+      color: #333;
+    }
+    
+    .password-strength {
+      margin-top: 5px;
+      font-size: 12px;
+      text-align: left;
+    }
+    
+    .password-requirements {
+      margin-top: 8px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      font-size: 11px;
+      text-align: left;
+      display: none;
+    }
+    
+    .password-requirements.show {
+      display: block;
+    }
+    
+    .requirement {
+      margin: 4px 0;
+      color: #666;
+    }
+    
+    .requirement.met {
+      color: #4CAF50;
+    }
+    
+    .requirement::before {
+      content: '✗ ';
+      color: #f44336;
+      font-weight: bold;
+    }
+    
+    .requirement.met::before {
+      content: '✓ ';
+      color: #4CAF50;
+    }
+    
+    .strength-bar {
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      margin-top: 5px;
+      overflow: hidden;
+    }
+    
+    .strength-bar-fill {
+      height: 100%;
+      width: 0%;
+      transition: all 0.3s ease;
+      background: #f44336;
+    }
+    
+    .strength-bar-fill.weak {
+      width: 33%;
+      background: #f44336;
+    }
+    
+    .strength-bar-fill.medium {
+      width: 66%;
+      background: #ff9800;
+    }
+    
+    .strength-bar-fill.strong {
+      width: 100%;
+      background: #4CAF50;
+    }
+    
+    .password-match-error {
+      color: #f44336;
+      font-size: 12px;
+      margin-top: 5px;
+      display: none;
+    }
+    
+    .password-match-error.show {
+      display: block;
+    }
+  </style>
 </head>
 <body>
   <div class="container" id="container">
@@ -99,17 +208,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       <form action="signup.php" method="POST" id="signup-form" novalidate>
         <h1>Create Account</h1>
         <input type="text" name="firstName" placeholder="First Name" required>
-        <input type="text" name="lastName" placeholder="Last Name" required>
-        <input type="text" name="fullName" placeholder="Full Name" required>
+        <input type="text" name="lastName" placeholder="Last Name (Optional)">
+        <input type="text" name="fullName" placeholder="Display Name / Nickname" required>
         <div class="email-input-wrapper">
           <input type="email" name="email" placeholder="Email" required id="email">
           <small id="email-help"></small>
         </div>
-        <input type="password" name="password" placeholder="Password" required>
-        <input type="date" name="birthday" placeholder="Birthday" required>
+        
+        <!-- Password with strength indicator -->
+        <div class="password-wrapper">
+          <div class="password-input-container">
+            <input type="password" name="password" placeholder="Password" required id="password">
+            <span class="toggle-password" id="toggle-password">👁️</span>
+          </div>
+          <div class="strength-bar">
+            <div class="strength-bar-fill" id="strength-bar"></div>
+          </div>
+          <div class="password-requirements" id="password-requirements">
+            <div class="requirement" id="req-length">At least 8 characters</div>
+            <div class="requirement" id="req-uppercase">One uppercase letter</div>
+            <div class="requirement" id="req-lowercase">One lowercase letter</div>
+            <div class="requirement" id="req-number">One number</div>
+            <div class="requirement" id="req-special">One special character (!@#$%^&*)</div>
+          </div>
+        </div>
+        
+        <!-- Confirm Password -->
+        <div class="password-wrapper">
+          <div class="password-input-container">
+            <input type="password" name="confirmPassword" placeholder="Confirm Password" required id="confirmPassword">
+            <span class="toggle-password" id="toggle-confirm-password">👁️</span>
+          </div>
+          <div class="password-match-error" id="password-match-error">Passwords do not match</div>
+        </div>
+        
         <input type="tel" name="contact" placeholder="Contact Number" pattern="[0-9]{11}" maxlength="11" required>
         <input type="text" name="address" placeholder="Address" maxlength="100" required>
-        <button type="submit">Sign Up</button>
+        <button type="submit" id="signup-btn">Sign Up</button>
       </form>
     </div>
 
@@ -121,7 +256,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
           <p style="color: red;"><?php echo $error_message; ?></p>
         <?php endif; ?>
         <input type="email" name="email" placeholder="Email" required>
-        <input type="password" name="password" placeholder="Password" required>
+        <div class="password-input-container">
+          <input type="password" name="password" placeholder="Password" required id="login-password">
+          <span class="toggle-password" id="toggle-login-password">👁️</span>
+        </div>
         <button type="submit">Login</button>
         <a href="forgotpassword.php">Forgot Password?</a>
       </form>
@@ -132,7 +270,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       <div class="overlay">
         <div class="overlay-panel overlay-left">
           <h1>Welcome Back!</h1>
-          <p>To stay connected, please log in with your info</p>
+          <p>Please login your info!</p>
           <button class="ghost" id="signIn">Sign In</button>
         </div>
         <div class="overlay-panel overlay-right">
@@ -157,14 +295,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       container.classList.remove("right-panel-active");
     });
 
-    // Email validation from signup.html
+    // Email validation
     (function() {
       const form = document.getElementById('signup-form');
-      if (!form) return; // Exit if form doesn't exist
+      if (!form) return;
       
       const emailInput = document.getElementById('email');
       const help = document.getElementById('email-help');
-      if (!emailInput || !help) return; // Exit if elements don't exist
+      if (!emailInput || !help) return;
       
       let lastChecked = '';
       let inflight = 0;
@@ -229,13 +367,146 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       emailInput.addEventListener('input', function() {
         show('');
       });
+    })();
 
-      form.addEventListener('submit', async function(e) {
-        const valid = await validateEmail();
-        if (!valid) {
-          e.preventDefault();
+    // Password strength validation
+    (function() {
+      const passwordInput = document.getElementById('password');
+      const confirmPasswordInput = document.getElementById('confirmPassword');
+      const requirements = document.getElementById('password-requirements');
+      const strengthBar = document.getElementById('strength-bar');
+      const matchError = document.getElementById('password-match-error');
+      const form = document.getElementById('signup-form');
+      
+      if (!passwordInput || !confirmPasswordInput) return;
+
+      const reqElements = {
+        length: document.getElementById('req-length'),
+        uppercase: document.getElementById('req-uppercase'),
+        lowercase: document.getElementById('req-lowercase'),
+        number: document.getElementById('req-number'),
+        special: document.getElementById('req-special')
+      };
+
+      function checkRequirements(password) {
+        const checks = {
+          length: password.length >= 8,
+          uppercase: /[A-Z]/.test(password),
+          lowercase: /[a-z]/.test(password),
+          number: /[0-9]/.test(password),
+          special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+        };
+
+        // Update UI for each requirement
+        Object.keys(checks).forEach(key => {
+          if (checks[key]) {
+            reqElements[key].classList.add('met');
+          } else {
+            reqElements[key].classList.remove('met');
+          }
+        });
+
+        // Calculate strength
+        const metCount = Object.values(checks).filter(v => v).length;
+        strengthBar.className = 'strength-bar-fill';
+        
+        if (metCount <= 2) {
+          strengthBar.classList.add('weak');
+        } else if (metCount <= 4) {
+          strengthBar.classList.add('medium');
+        } else {
+          strengthBar.classList.add('strong');
+        }
+
+        return Object.values(checks).every(v => v);
+      }
+
+      function checkPasswordMatch() {
+        if (confirmPasswordInput.value && passwordInput.value !== confirmPasswordInput.value) {
+          matchError.classList.add('show');
+          return false;
+        } else {
+          matchError.classList.remove('show');
+          return true;
+        }
+      }
+
+      // Show requirements when user starts typing or focuses
+      passwordInput.addEventListener('focus', () => {
+        requirements.classList.add('show');
+      });
+
+      passwordInput.addEventListener('input', () => {
+        // Show requirements as soon as user starts typing
+        if (passwordInput.value.length > 0) {
+          requirements.classList.add('show');
+        }
+        checkRequirements(passwordInput.value);
+        if (confirmPasswordInput.value) {
+          checkPasswordMatch();
         }
       });
+
+      // Optional: hide requirements when field is empty and loses focus
+      passwordInput.addEventListener('blur', () => {
+        if (passwordInput.value.length === 0) {
+          requirements.classList.remove('show');
+        }
+      });
+
+      confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+
+      form.addEventListener('submit', async function(e) {
+        const passwordValid = checkRequirements(passwordInput.value);
+        const passwordsMatch = checkPasswordMatch();
+        
+        if (!passwordValid || !passwordsMatch) {
+          e.preventDefault();
+          alert('Please ensure your password meets all requirements and passwords match.');
+        }
+      });
+    })();
+
+    // Password visibility toggle
+    (function() {
+      // Toggle for signup password
+      const togglePassword = document.getElementById('toggle-password');
+      const passwordInput = document.getElementById('password');
+      
+      if (togglePassword && passwordInput) {
+        togglePassword.addEventListener('click', function() {
+          const type = passwordInput.type === 'password' ? 'text' : 'password';
+          passwordInput.type = type;
+          // Change icon
+          this.textContent = type === 'password' ? '👁️' : '🙈';
+        });
+      }
+
+      // Toggle for confirm password
+      const toggleConfirmPassword = document.getElementById('toggle-confirm-password');
+      const confirmPasswordInput = document.getElementById('confirmPassword');
+      
+      if (toggleConfirmPassword && confirmPasswordInput) {
+        toggleConfirmPassword.addEventListener('click', function() {
+          const type = confirmPasswordInput.type === 'password' ? 'text' : 'password';
+          confirmPasswordInput.type = type;
+          // Change icon
+          this.textContent = type === 'password' ? '👁️' : '🙈';
+        });
+      }
+
+      // Toggle for login password
+      const toggleLoginPassword = document.getElementById('toggle-login-password');
+      const loginPasswordInput = document.getElementById('login-password');
+      
+      if (toggleLoginPassword && loginPasswordInput) {
+        toggleLoginPassword.addEventListener('click', function() {
+          const type = loginPasswordInput.type === 'password' ? 'text' : 'password';
+          loginPasswordInput.type = type;
+          // Change icon
+          this.textContent = type === 'password' ? '👁️' : '🙈';
+        });
+      }
     })();
   </script>
 </body>

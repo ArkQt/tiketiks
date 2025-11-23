@@ -18,13 +18,76 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $duration = intval($_POST['duration'] ?? 0);
     $rating = trim($_POST['rating'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $image_poster = trim($_POST['image_poster'] ?? '');
-    $carousel_image = trim($_POST['carousel_image'] ?? '');
     $show_date = $_POST['show_date'] ?? '';
     $show_hour = $_POST['show_hour'] ?? '';
+    $delete_at = $_POST['delete_at'] ?? '';
+    // Normalize delete_at: accept empty or YYYY-MM-DD
+    if (!empty($delete_at)) {
+        // Simple format check
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $delete_at)) {
+            $error_message = "Invalid delete date format. Use YYYY-MM-DD.";
+            $delete_at = '';
+        }
+    }
     // Make checkboxes mutually exclusive - if coming_soon is checked, now_showing must be false
     $coming_soon = isset($_POST['coming_soon']) ? 1 : 0;
     $now_showing = ($coming_soon == 1) ? 0 : (isset($_POST['now_showing']) ? 1 : 0);
+    
+    // Handle file uploads
+    $image_poster = '';
+    $carousel_image = '';
+    
+    // Create upload directories if they don't exist
+    $images_dir = __DIR__ . '/images';
+    $carousel_dir = __DIR__ . '/carousel';
+    if (!is_dir($images_dir)) {
+        mkdir($images_dir, 0755, true);
+    }
+    if (!is_dir($carousel_dir)) {
+        mkdir($carousel_dir, 0755, true);
+    }
+    
+    // Handle image_poster upload
+    if (isset($_FILES['image_poster']) && $_FILES['image_poster']['error'] === UPLOAD_ERR_OK) {
+        $file = $_FILES['image_poster'];
+        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        $max_size = 5 * 1024 * 1024; // 5MB
+        
+        if (in_array($file['type'], $allowed_types) && $file['size'] <= $max_size) {
+            $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $new_filename = 'movie_' . time() . '_' . uniqid() . '.' . $file_extension;
+            $upload_path = $images_dir . '/' . $new_filename;
+            
+            if (move_uploaded_file($file['tmp_name'], $upload_path)) {
+                $image_poster = 'images/' . $new_filename;
+            } else {
+                $error_message = "Failed to upload poster image.";
+            }
+        } else {
+            $error_message = "Invalid poster image. Please upload a valid image file (JPEG, PNG, GIF, or WebP) under 5MB.";
+        }
+    }
+    
+    // Handle carousel_image upload
+    if (isset($_FILES['carousel_image']) && $_FILES['carousel_image']['error'] === UPLOAD_ERR_OK) {
+        $file = $_FILES['carousel_image'];
+        $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        $max_size = 5 * 1024 * 1024; // 5MB
+        
+        if (in_array($file['type'], $allowed_types) && $file['size'] <= $max_size) {
+            $file_extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $new_filename = 'carousel_' . time() . '_' . uniqid() . '.' . $file_extension;
+            $upload_path = $carousel_dir . '/' . $new_filename;
+            
+            if (move_uploaded_file($file['tmp_name'], $upload_path)) {
+                $carousel_image = 'carousel/' . $new_filename;
+            } else {
+                $error_message = "Failed to upload carousel image.";
+            }
+        } else {
+            $error_message = "Invalid carousel image. Please upload a valid image file (JPEG, PNG, GIF, or WebP) under 5MB.";
+        }
+    }
     
     if (empty($title) || empty($genre) || empty($duration) || empty($rating)) {
         $error_message = "Please fill in all required fields (Title, Genre, Duration, Rating).";
@@ -39,47 +102,95 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Check if carousel_image column exists
         $carousel_check = $conn->query("SHOW COLUMNS FROM MOVIE LIKE 'carousel_image'");
         $has_carousel_image = $carousel_check && $carousel_check->num_rows > 0;
+
+        // Check if delete_at column exists
+        $delete_check = $conn->query("SHOW COLUMNS FROM MOVIE LIKE 'delete_at'");
+        $has_delete_at = $delete_check && $delete_check->num_rows > 0;
         
         // Insert movie - use appropriate query based on column existence
         if ($has_now_showing && $has_carousel_image) {
             // Has both now_showing/coming_soon and carousel_image columns
-            $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, carousel_image, now_showing, coming_soon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            if ($stmt) {
-                $stmt->bind_param("ssissssii", $title, $genre, $duration, $rating, $description, $image_poster, $carousel_image, $now_showing, $coming_soon);
-                $execute_result = $stmt->execute();
+            if ($has_delete_at) {
+                $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, carousel_image, now_showing, coming_soon, delete_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssissssiis", $title, $genre, $duration, $rating, $description, $image_poster, $carousel_image, $now_showing, $coming_soon, $delete_at);
+                    $execute_result = $stmt->execute();
+                } else {
+                    $execute_result = false;
+                    $error_message = "Error preparing statement: " . $conn->error;
+                }
             } else {
-                $execute_result = false;
-                $error_message = "Error preparing statement: " . $conn->error;
+                $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, carousel_image, now_showing, coming_soon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssissssii", $title, $genre, $duration, $rating, $description, $image_poster, $carousel_image, $now_showing, $coming_soon);
+                    $execute_result = $stmt->execute();
+                } else {
+                    $execute_result = false;
+                    $error_message = "Error preparing statement: " . $conn->error;
+                }
             }
         } else if ($has_now_showing) {
             // Has now_showing/coming_soon but not carousel_image
-            $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, now_showing, coming_soon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            if ($stmt) {
-                $stmt->bind_param("ssisssii", $title, $genre, $duration, $rating, $description, $image_poster, $now_showing, $coming_soon);
-                $execute_result = $stmt->execute();
+            if ($has_delete_at) {
+                $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, now_showing, coming_soon, delete_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssisssiis", $title, $genre, $duration, $rating, $description, $image_poster, $now_showing, $coming_soon, $delete_at);
+                    $execute_result = $stmt->execute();
+                } else {
+                    $execute_result = false;
+                    $error_message = "Error preparing statement: " . $conn->error;
+                }
             } else {
-                $execute_result = false;
-                $error_message = "Error preparing statement: " . $conn->error;
+                $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, now_showing, coming_soon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssisssii", $title, $genre, $duration, $rating, $description, $image_poster, $now_showing, $coming_soon);
+                    $execute_result = $stmt->execute();
+                } else {
+                    $execute_result = false;
+                    $error_message = "Error preparing statement: " . $conn->error;
+                }
             }
         } else if ($has_carousel_image) {
             // Has carousel_image but not now_showing/coming_soon
-            $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, carousel_image) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            if ($stmt) {
-                $stmt->bind_param("ssissss", $title, $genre, $duration, $rating, $description, $image_poster, $carousel_image);
-                $execute_result = $stmt->execute();
+            if ($has_delete_at) {
+                $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, carousel_image, delete_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssisssss", $title, $genre, $duration, $rating, $description, $image_poster, $carousel_image, $delete_at);
+                    $execute_result = $stmt->execute();
+                } else {
+                    $execute_result = false;
+                    $error_message = "Error preparing statement: " . $conn->error;
+                }
             } else {
-                $execute_result = false;
-                $error_message = "Error preparing statement: " . $conn->error;
+                $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, carousel_image) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssissss", $title, $genre, $duration, $rating, $description, $image_poster, $carousel_image);
+                    $execute_result = $stmt->execute();
+                } else {
+                    $execute_result = false;
+                    $error_message = "Error preparing statement: " . $conn->error;
+                }
             }
         } else {
             // Insert without now_showing/coming_soon and carousel_image columns
-            $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster) VALUES (?, ?, ?, ?, ?, ?)");
-            if ($stmt) {
-                $stmt->bind_param("ssisss", $title, $genre, $duration, $rating, $description, $image_poster);
-                $execute_result = $stmt->execute();
+            if ($has_delete_at) {
+                $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster, delete_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssissss", $title, $genre, $duration, $rating, $description, $image_poster, $delete_at);
+                    $execute_result = $stmt->execute();
+                } else {
+                    $execute_result = false;
+                    $error_message = "Error preparing statement: " . $conn->error;
+                }
             } else {
-                $execute_result = false;
-                $error_message = "Error preparing statement: " . $conn->error;
+                $stmt = $conn->prepare("INSERT INTO MOVIE (title, genre, duration, rating, movie_descrp, image_poster) VALUES (?, ?, ?, ?, ?, ?)");
+                if ($stmt) {
+                    $stmt->bind_param("ssisss", $title, $genre, $duration, $rating, $description, $image_poster);
+                    $execute_result = $stmt->execute();
+                } else {
+                    $execute_result = false;
+                    $error_message = "Error preparing statement: " . $conn->error;
+                }
             }
         }
         
@@ -87,17 +198,141 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $movie_id = $conn->insert_id;
             $success_message = "Movie added successfully!";
             
-            // If show date and time are provided, add schedule
+            // Check if branch_id column exists in MOVIE_SCHEDULE
+            $branch_check = $conn->query("SHOW COLUMNS FROM MOVIE_SCHEDULE LIKE 'branch_id'");
+            $has_branch_id = $branch_check && $branch_check->num_rows > 0;
+            
+            // If show date and time are provided, add schedule for ALL branches
             if (!empty($show_date) && !empty($show_hour)) {
-                $schedule_stmt = $conn->prepare("INSERT INTO MOVIE_SCHEDULE (movie_show_id, show_date, show_hour) VALUES (?, ?, ?)");
-                $schedule_stmt->bind_param("iss", $movie_id, $show_date, $show_hour);
-                
-                if ($schedule_stmt->execute()) {
-                    $success_message .= " Show schedule added successfully!";
-                } else {
-                    $error_message = "Movie added but schedule failed: " . $conn->error;
+                // Check if BRANCH table exists first
+                $table_check = $conn->query("SHOW TABLES LIKE 'BRANCH'");
+                if (!$table_check || $table_check->num_rows == 0) {
+                    // Try lowercase
+                    $table_check = $conn->query("SHOW TABLES LIKE 'branch'");
                 }
-                $schedule_stmt->close();
+                
+                if ($table_check && $table_check->num_rows > 0) {
+                    // Fetch all branches - try uppercase first, then lowercase
+                    $branches_query = @$conn->query("SELECT branch_id FROM BRANCH");
+                    if (!$branches_query) {
+                        $branches_query = @$conn->query("SELECT branch_id FROM branch");
+                    }
+                    
+                    $branches_added = 0;
+                    $branches_failed = 0;
+                    
+                    if ($branches_query && $branches_query->num_rows > 0) {
+                        if ($has_branch_id) {
+                            // Insert schedule for each branch
+                            $schedule_stmt = $conn->prepare("INSERT INTO MOVIE_SCHEDULE (movie_show_id, show_date, show_hour, branch_id) VALUES (?, ?, ?, ?)");
+                            while ($branch = $branches_query->fetch_assoc()) {
+                                $schedule_stmt->bind_param("issi", $movie_id, $show_date, $show_hour, $branch['branch_id']);
+                                if ($schedule_stmt->execute()) {
+                                    $branches_added++;
+                                } else {
+                                    $branches_failed++;
+                                }
+                            }
+                            $schedule_stmt->close();
+                        } else {
+                            // No branch_id column - insert single schedule (backward compatibility)
+                            $schedule_stmt = $conn->prepare("INSERT INTO MOVIE_SCHEDULE (movie_show_id, show_date, show_hour) VALUES (?, ?, ?)");
+                            $schedule_stmt->bind_param("iss", $movie_id, $show_date, $show_hour);
+                            if ($schedule_stmt->execute()) {
+                                $branches_added = 1;
+                            } else {
+                                $branches_failed = 1;
+                                $error_message = "Movie added but schedule failed: " . $conn->error;
+                            }
+                            $schedule_stmt->close();
+                        }
+                        
+                        if ($branches_added > 0) {
+                            if ($has_branch_id) {
+                                $success_message .= " Show schedule added to {$branches_added} branch(es) successfully!";
+                                if ($branches_failed > 0) {
+                                    $error_message = "Movie added, but {$branches_failed} branch schedule(s) failed.";
+                                }
+                            } else {
+                                $success_message .= " Show schedule added successfully!";
+                            }
+                        }
+                    } else {
+                        if ($branches_query === false) {
+                            $error_message = "Movie added but could not fetch branches. Error: " . $conn->error . ". Please ensure the BRANCH table exists.";
+                        } else {
+                            $error_message = "Movie added but no branches found. Please add branches first.";
+                        }
+                    }
+                } else {
+                    // BRANCH table doesn't exist
+                    $error_message = "Movie added but BRANCH table not found. Please run the database setup script (ticketix.sql) to create the BRANCH table first.";
+                }
+            } else {
+                // If movie is marked as "now showing", automatically create default schedules for all branches
+                if ($now_showing == 1) {
+                    // Check if BRANCH table exists
+                    $table_check = $conn->query("SHOW TABLES LIKE 'BRANCH'");
+                    if (!$table_check || $table_check->num_rows == 0) {
+                        $table_check = $conn->query("SHOW TABLES LIKE 'branch'");
+                    }
+                    
+                    if ($table_check && $table_check->num_rows > 0) {
+                        // Fetch all branches
+                        $branches_query = @$conn->query("SELECT branch_id FROM BRANCH");
+                        if (!$branches_query) {
+                            $branches_query = @$conn->query("SELECT branch_id FROM branch");
+                        }
+                        
+                        if ($branches_query && $branches_query->num_rows > 0) {
+                            // Default show times (can be customized)
+                            $default_times = ['10:00:00', '13:00:00', '16:00:00', '19:00:00', '22:00:00'];
+                            $today = date('Y-m-d');
+                            
+                            $branches_added = 0;
+                            $branches_failed = 0;
+                            
+                            if ($has_branch_id) {
+                                // Create schedules for each branch with default times
+                                $schedule_stmt = $conn->prepare("INSERT INTO MOVIE_SCHEDULE (movie_show_id, show_date, show_hour, branch_id) VALUES (?, ?, ?, ?)");
+                                while ($branch = $branches_query->fetch_assoc()) {
+                                    foreach ($default_times as $time) {
+                                        $schedule_stmt->bind_param("issi", $movie_id, $today, $time, $branch['branch_id']);
+                                        if ($schedule_stmt->execute()) {
+                                            $branches_added++;
+                                        } else {
+                                            $branches_failed++;
+                                        }
+                                    }
+                                }
+                                $schedule_stmt->close();
+                                
+                                if ($branches_added > 0) {
+                                    $success_message .= " Default schedules created for all branches ({$branches_added} schedule entries).";
+                                }
+                            } else {
+                                // No branch_id column - create single schedule per time
+                                $schedule_stmt = $conn->prepare("INSERT INTO MOVIE_SCHEDULE (movie_show_id, show_date, show_hour) VALUES (?, ?, ?)");
+                                foreach ($default_times as $time) {
+                                    $schedule_stmt->bind_param("iss", $movie_id, $today, $time);
+                                    if ($schedule_stmt->execute()) {
+                                        $branches_added++;
+                                    } else {
+                                        $branches_failed++;
+                                    }
+                                }
+                                $schedule_stmt->close();
+                                
+                                if ($branches_added > 0) {
+                                    $success_message .= " Default schedules created ({$branches_added} schedule entries).";
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Movie not marked as "now showing" - inform that schedules can be added later
+                    $success_message .= " You can add schedules for this movie later from the movie list.";
+                }
             }
         } else {
             $error_message = "Error adding movie: " . $conn->error;
@@ -156,6 +391,21 @@ if ($movies_query) {
             font-size: 14px;
             font-family: 'Poppins', sans-serif;
             transition: border-color 0.3s;
+        }
+        
+        .form-group input[type="file"] {
+            padding: 8px;
+            cursor: pointer;
+            background: #000000;
+        }
+        
+        .form-group input[type="file"]:hover {
+            background: #e9ecef;
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 4px;
         }
         
         .form-group input:focus,
@@ -249,7 +499,7 @@ if ($movies_query) {
                 <div class="alert alert-error"><?= htmlspecialchars($error_message) ?></div>
             <?php endif; ?>
 
-            <form method="POST" action="add-show.php">
+            <form method="POST" action="add-show.php" enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="title">Movie Title *</label>
                     <input type="text" id="title" name="title" required>
@@ -266,33 +516,40 @@ if ($movies_query) {
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label for="rating">Rating *</label>
+                    <select id="rating" name="rating" required>
+                        <option value="">Select Rating</option>
+                        <option value="G">G</option>
+                        <option value="PG">PG</option>
+                        <option value="PG-13">PG-13</option>
+                        <option value="R">R</option>
+                        <option value="NC-17">NC-17</option>
+                    </select>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="rating">Rating *</label>
-                        <select id="rating" name="rating" required>
-                            <option value="">Select Rating</option>
-                            <option value="G">G</option>
-                            <option value="PG">PG</option>
-                            <option value="PG-13">PG-13</option>
-                            <option value="R">R</option>
-                            <option value="NC-17">NC-17</option>
-                        </select>
+                        <label for="image_poster">Image Poster (Portrait)</label>
+                        <input type="file" id="image_poster" name="image_poster" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp">
+                        <small style="color: #666; font-size: 12px;">Portrait/vertical poster image for movie cards (JPEG, PNG, GIF, or WebP, max 5MB)</small>
                     </div>
                     <div class="form-group">
-                        <label for="image_poster">Image Poster URL (Portrait)</label>
-                        <input type="text" id="image_poster" name="image_poster" placeholder="images/movie-poster.jpg">
-                        <small style="color: #666; font-size: 12px;">Portrait/vertical poster image for movie cards</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="carousel_image">Carousel Image URL (Landscape)</label>
-                        <input type="text" id="carousel_image" name="carousel_image" placeholder="carousel/movie-carousel.jpg">
-                        <small style="color: #666; font-size: 12px;">Landscape/horizontal image for carousel background</small>
+                        <label for="carousel_image">Carousel Image (Landscape)</label>
+                        <input type="file" id="carousel_image" name="carousel_image" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp">
+                        <small style="color: #666; font-size: 12px;">Landscape/horizontal image for carousel background (JPEG, PNG, GIF, or WebP, max 5MB)</small>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" name="description" placeholder="Enter movie description..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="delete_at">Delete On (optional)</label>
+                    <input type="date" id="delete_at" name="delete_at">
+                    <small style="color: #666; font-size: 12px;">Optional date when this movie should be deleted/archived automatically.</small>
                 </div>
 
                 <div class="form-row">

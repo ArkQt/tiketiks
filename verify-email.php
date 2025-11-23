@@ -58,4 +58,3 @@ $conn->close();
 
 respond('Your email has been verified successfully. You can now log in.', true);
 
-
